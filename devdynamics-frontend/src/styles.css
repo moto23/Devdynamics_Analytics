@@ -1,0 +1,89 @@
+/* 🌙 DARK MODE GLOBAL */
+
+body.dark-mode {
+    background-color: #0f172a;
+    color: #e5e7eb;
+  }
+  
+  /* Navbar */
+  body.dark-mode .navbar {
+    background-color: #1e293b;
+    border-bottom: 1px solid #334155;
+  }
+  
+  /* Main containers */
+  body.dark-mode .dashboard-container,
+  body.dark-mode .summary-section,
+  body.dark-mode .chart-section,
+  body.dark-mode .status-box {
+    background-color: #1e293b;
+    color: #e5e7eb;
+    border-color: #334155;
+  }
+  
+  /* Headings */
+  body.dark-mode h1,
+  body.dark-mode h2,
+  body.dark-mode h3,
+  body.dark-mode th,
+  body.dark-mode td {
+    color: #e5e7eb;
+  }
+  
+  /* Inputs */
+  body.dark-mode input,
+  body.dark-mode select {
+    background-color: #020617;
+    color: #e5e7eb;
+    border: 1px solid #475569;
+  }
+  
+  /* Links */
+  body.dark-mode a {
+    color: #60a5fa;
+  }
+  
+  /* Footer */
+  body.dark-mode footer {
+    background-color: #1e293b;
+    color: #e5e7eb;
+    border-top: 1px solid #334155;
+  }
+  
+  /* Button */
+  body.dark-mode .theme-toggle {
+    background-color: #020617;
+    color: #e5e7eb;
+    border: 1px solid #475569;
+  }
+
+
+  /* 🔥 FORCE ngx-charts text to white in dark mode */
+body.dark-mode .ngx-charts text {
+    fill: #e5e7eb !important;
+  }
+  
+  /* Axis labels */
+  body.dark-mode .ngx-charts .axis-label {
+    fill: #e5e7eb !important;
+  }
+  
+  /* Axis ticks (dates, numbers) */
+  body.dark-mode .ngx-charts .tick text {
+    fill: #e5e7eb !important;
+  }
+  
+  /* Legend text */
+  body.dark-mode .ngx-charts .legend-label-text {
+    color: #e5e7eb !important;
+  }
+  
+  /* Grid lines (make softer) */
+  body.dark-mode .ngx-charts .gridline-path {
+    stroke: #475569 !important;
+  }
+  
+  /* Chart background fix */
+  body.dark-mode .ngx-charts {
+    background-color: transparent !important;
+  }

@@ -1,0 +1,181 @@
+/* ==============================================
+   CONTAINER
+=============================================== */
+.companies-container {
+    max-width: 1100px;
+    margin: 40px auto;
+    padding: 24px 28px;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+  }
+  
+  /* ==============================================
+     TITLE
+  =============================================== */
+  h1 {
+    margin-bottom: 24px;
+    font-size: 32px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.5px;
+  }
+  
+  /* ==============================================
+     SEARCH
+  =============================================== */
+  .search-input {
+    width: 100%;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    font-size: 14px;
+    background: #ffffff;
+    color: #0f172a;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+    outline: none;
+  }
+  
+  .search-input::placeholder {
+    color: #94a3b8;
+  }
+  
+  .search-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+  
+  /* ==============================================
+     TABLE WRAPPER
+  =============================================== */
+  .table-wrapper {
+    overflow-x: auto;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  }
+  
+  /* ==============================================
+     TABLE
+  =============================================== */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+  }
+  
+  /* HEADER */
+  thead {
+    background: #f8fafc;
+  }
+  
+  thead tr {
+    border-bottom: 2px solid #e2e8f0;
+  }
+  
+  th {
+    text-align: left;
+    padding: 14px 18px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+  }
+  
+  /* BODY */
+  td {
+    padding: 14px 18px;
+    border-top: 1px solid #f1f5f9;
+    color: #0f172a;
+    font-size: 14px;
+  }
+  
+  td:not(.company-name) {
+    text-align: center;
+    font-weight: 500;
+    color: #334155;
+  }
+  
+  .company-name {
+    font-weight: 600;
+    color: #0f172a;
+  }
+  
+  /* ROW HOVER */
+  .clickable-row {
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  
+  .clickable-row:hover {
+    background: #f0f7ff;
+  }
+  
+  .clickable-row:hover .company-name {
+    color: #2563eb;
+  }
+  
+  /* ==============================================
+     DARK MODE
+  =============================================== */
+  :host-context(body.dark-mode) h1 {
+    color: #e2e8f0;
+  }
+  
+  :host-context(body.dark-mode) .search-input {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-color: #334155;
+  }
+  
+  :host-context(body.dark-mode) .search-input::placeholder {
+    color: #475569;
+  }
+  
+  :host-context(body.dark-mode) .search-input:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  }
+  
+  :host-context(body.dark-mode) .table-wrapper {
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+  }
+  
+  :host-context(body.dark-mode) table {
+    background: rgba(255, 255, 255, 0.04);
+  }
+  
+  :host-context(body.dark-mode) thead {
+    background: rgba(255, 255, 255, 0.06);
+  }
+  
+  :host-context(body.dark-mode) thead tr {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+  
+  :host-context(body.dark-mode) th {
+    color: #64748b;
+  }
+  
+  :host-context(body.dark-mode) td {
+    color: #cbd5e1;
+    border-top-color: rgba(255, 255, 255, 0.05);
+  }
+  
+  :host-context(body.dark-mode) td:not(.company-name) {
+    color: #94a3b8;
+  }
+  
+  :host-context(body.dark-mode) .company-name {
+    color: #e2e8f0;
+  }
+  
+  :host-context(body.dark-mode) .clickable-row:hover {
+    background: rgba(37, 99, 235, 0.08);
+  }
+  
+  :host-context(body.dark-mode) .clickable-row:hover .company-name {
+    color: #60a5fa;
+  }

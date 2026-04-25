@@ -1,0 +1,113 @@
+/* ==============================================
+   CONTAINER
+=============================================== */
+.company-detail {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 24px 28px;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+  }
+  
+  /* ==============================================
+     HEADING
+  =============================================== */
+  .company-detail h1 {
+    font-size: 28px;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 24px 0;
+    letter-spacing: -0.4px;
+  }
+  
+  /* ==============================================
+     CARD
+  =============================================== */
+  .card {
+    padding: 28px 32px;
+    border-radius: 16px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  
+  /* Each stat row becomes a card */
+  .card p {
+    display: flex;
+    flex-direction: column;
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 16px 20px;
+    border: 1px solid #e2e8f0;
+    margin: 0;
+    font-size: 14px;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    cursor: default;
+  }
+  
+  .card p:hover {
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.1);
+    transform: translateY(-2px);
+  }
+  
+  /* The number part — wrap values in a <strong> in your HTML for big styling */
+  .card p strong {
+    font-size: 30px;
+    font-weight: 800;
+    color: #2563eb;
+    margin-top: 8px;
+    line-height: 1;
+    letter-spacing: -0.5px;
+  }
+  
+  /* ==============================================
+     DARK MODE
+  =============================================== */
+  :host-context(body.dark-mode) .company-detail h1 {
+    color: #e2e8f0;
+  }
+  
+  :host-context(body.dark-mode) .card {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+    box-shadow: none !important;
+  }
+  
+  :host-context(body.dark-mode) .card p {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #94a3b8;
+  }
+  
+  :host-context(body.dark-mode) .card p:hover {
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.2);
+  }
+  
+  :host-context(body.dark-mode) .card p strong {
+    color: #60a5fa;
+  }
+  
+  /* ==============================================
+     RESPONSIVE
+  =============================================== */
+  @media (max-width: 768px) {
+    .card {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .card {
+      grid-template-columns: 1fr;
+    }
+  
+    .company-detail {
+      padding: 20px 16px;
+    }
+  }

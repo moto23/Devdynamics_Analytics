@@ -1,0 +1,36 @@
+<div class="companies-container">
+    <h1>Companies</h1>
+  
+    <input
+      type="text"
+      placeholder="Search companies..."
+      [(ngModel)]="searchText"
+      class="search-input"
+    />
+  
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Commits</th>
+            <th>PRs</th>
+            <th>Contributors</th>
+          </tr>
+        </thead>
+  
+        <tbody>
+            <tr
+            *ngFor="let c of filteredCompanies"
+            class="clickable-row"
+            (click)="goToCompany(c.name)"
+          >
+            <td class="company-name">{{ c.name }}</td>
+            <td>{{ c.commits }}</td>
+            <td>{{ c.prs }}</td>
+            <td>{{ c.contributors }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
