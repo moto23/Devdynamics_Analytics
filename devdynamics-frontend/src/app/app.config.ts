@@ -20,7 +20,7 @@ export const appConfig: ApplicationConfig = {
       const httpLink = inject(HttpLink);
 
       return {
-        link: httpLink.create({ uri: 'http://localhost:5236/graphql' }),
+        link: httpLink.create({ uri: 'https://devdynamics-api.onrender.com/graphql' }),
         cache: new InMemoryCache()
       };
     })
