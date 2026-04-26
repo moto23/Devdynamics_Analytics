@@ -1,0 +1,15 @@
+{
+  "builds": [
+    {
+      "src": "devdynamics-frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist/devdynamics-frontend"
+      }
+    }
+  ],
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/.*", "dest": "/index.html" }
+  ]
+}
