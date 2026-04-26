@@ -18,13 +18,13 @@ builder.Services
     .AddGraphQLServer()
     .AddQueryType<Query>();
 
-// 🔥 Updated CORS (for deployment)
+// ✅ CORS (allow frontend)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy
-            .AllowAnyOrigin() // change later to your Vercel domain
+            .AllowAnyOrigin()
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -43,11 +43,16 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowFrontend");
 
-// ⚠️ Optional: you can remove HTTPS redirection on Render if issues come
+// ⚠️ Optional: can keep or remove
 app.UseHttpsRedirection();
 
 app.MapControllers();
-app.MapGraphQL();
+
+// ✅ GraphQL endpoint
+app.MapGraphQL("/graphql");
+
+// ✅ Test route
+app.MapGet("/", () => "API is running 🚀");
 
 // =========================
 // DB Init + Seed
@@ -60,7 +65,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // =========================
-// 🔥 Render Port Binding
+// 🔥 Render Port Binding (CRITICAL)
 // =========================
-var port = Environment.GetEnvironmentVariable("5236") ?? "5000";
-app.Run($"http://0.0.0.0:{5236}");
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+app.Run($"http://0.0.0.0:{port}");
