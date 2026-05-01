@@ -1,18 +1,12 @@
 <div class="dashboard-container">
 
-  <div class="dashboard-header">
-
-    <h1>DevDynamics Analytics</h1>
-
-    <div *ngIf="selectedCompany" class="selected-company">
-      {{ selectedCompany }}
-    </div>
-
-  </div>
+  <h1>DevDynamics</h1>
 
   <!-- FILTERS -->
 
   <section class="filters">
+
+    <!-- START DATE -->
 
     <div class="filter-field">
 
@@ -21,9 +15,12 @@
       <input
         type="date"
         [(ngModel)]="startDate"
-        (change)="onFiltersChanged()" />
+        (change)="onFiltersChanged()"
+      />
 
     </div>
+
+    <!-- END DATE -->
 
     <div class="filter-field">
 
@@ -32,9 +29,12 @@
       <input
         type="date"
         [(ngModel)]="endDate"
-        (change)="onFiltersChanged()" />
+        (change)="onFiltersChanged()"
+      />
 
     </div>
+
+    <!-- CONTRIBUTOR -->
 
     <div class="filter-field">
 
@@ -44,13 +44,12 @@
 
         <div
           class="custom-select__trigger"
-          (click)="$event.stopPropagation(); dropdownOpen = !dropdownOpen">
+          (click)="$event.stopPropagation(); dropdownOpen = !dropdownOpen"
+        >
 
-          <span>
-            {{ contributor || 'All Contributors' }}
-          </span>
+          <span>{{ contributor || 'All Contributors' }}</span>
 
-          <span class="arrow">▼</span>
+          <span>▼</span>
 
         </div>
 
@@ -58,19 +57,17 @@
 
           <div
             class="custom-option"
-            (click)="selectContributor('')">
-
+            (click)="selectContributor('')"
+          >
             All Contributors
-
           </div>
 
           <div
             *ngFor="let item of contributors"
             class="custom-option"
-            (click)="selectContributor(item)">
-
+            (click)="selectContributor(item)"
+          >
             {{ item }}
-
           </div>
 
         </div>
@@ -83,139 +80,124 @@
 
   <!-- LOADING -->
 
-  <section *ngIf="loading" class="loading-box">
-    Loading dashboard...
+  <section *ngIf="loading">
+
+    <p>Loading dashboard...</p>
+
   </section>
 
   <!-- DATE ERROR -->
 
-  <section *ngIf="dateRangeMessage" class="error-box">
-    {{ dateRangeMessage }}
+  <section *ngIf="dateRangeMessage">
+
+    <p>{{ dateRangeMessage }}</p>
+
   </section>
 
   <!-- API ERROR -->
 
-  <section *ngIf="errorMessage" class="error-box">
-    {{ errorMessage }}
+  <section *ngIf="errorMessage">
+
+    <p>{{ errorMessage }}</p>
+
   </section>
 
   <!-- EMPTY -->
 
-  <section *ngIf="hasNoData && !loading" class="empty-box">
-    No data found for selected filters.
+  <section *ngIf="hasNoData && !loading">
+
+    <p>No data found. Try adjusting filters.</p>
+
   </section>
 
-  <!-- MAIN CONTENT -->
+  <!-- DASHBOARD -->
 
   <ng-container *ngIf="!loading && !hasNoData">
 
     <!-- SUMMARY -->
 
-    <section class="summary-grid">
+    <section class="summary-section">
 
-      <div class="summary-card">
-        <span>Total Commits</span>
-        <h2>{{ summary.totalCommits || 0 }}</h2>
-      </div>
+      <h2>Summary</h2>
 
-      <div class="summary-card">
-        <span>Pull Requests</span>
-        <h2>{{ summary.totalPRs || 0 }}</h2>
-      </div>
+      <p>Commits: {{ summary.totalCommits }}</p>
 
-      <div class="summary-card">
-        <span>Merges</span>
-        <h2>{{ summary.totalMerges || 0 }}</h2>
-      </div>
+      <p>PRs: {{ summary.totalPRs }}</p>
 
-      <div class="summary-card">
-        <span>Contributors</span>
-        <h2>{{ summary.contributorCount || 0 }}</h2>
-      </div>
+      <p>Merges: {{ summary.totalMerges }}</p>
 
     </section>
 
-    <!-- COMMIT FREQUENCY -->
+    <!-- COMMITS LINE CHART -->
 
-    <section
-      class="chart-section"
-      *ngIf="commitFrequencyData.length">
+    <section class="chart-section">
 
       <h2>Commit Frequency</h2>
 
       <ngx-charts-line-chart
         [results]="commitFrequencyData"
-        [view]="[1150, 420]"
+        [view]="[900,300]"
+        [legend]="true"
         [xAxis]="true"
         [yAxis]="true"
-        [legend]="false"
-        [timeline]="true"
-        [autoScale]="true"
-        [animations]="true">
-
+        [showXAxisLabel]="true"
+        [showYAxisLabel]="true"
+        xAxisLabel="Date"
+        yAxisLabel="Commits">
       </ngx-charts-line-chart>
 
     </section>
 
     <!-- ACTIVITY BREAKDOWN -->
 
-    <section
-      class="chart-section"
-      *ngIf="activityBreakdownData.length">
+    <section class="chart-section">
 
       <h2>Activity Breakdown</h2>
 
       <ngx-charts-bar-vertical-2d
         [results]="activityBreakdownData"
-        [view]="[1150, 520]"
+        [view]="[900,400]"
         [legend]="true"
         [xAxis]="true"
         [yAxis]="true"
-        [animations]="true"
-        [barPadding]="12">
-
+        [showXAxisLabel]="true"
+        [showYAxisLabel]="true"
+        xAxisLabel="Date"
+        yAxisLabel="Count">
       </ngx-charts-bar-vertical-2d>
 
     </section>
 
-    <!-- PIE -->
+    <!-- PIE CHART -->
 
-    <section
-      class="chart-section"
-      *ngIf="activityShareData.length">
+    <section class="chart-section">
 
       <h2>Activity Share</h2>
 
       <ngx-charts-pie-chart
         [results]="activityShareData"
-        [view]="[1000, 420]"
-        [legend]="true"
-        [labels]="true"
-        [doughnut]="true"
-        [animations]="true">
-
+        [view]="[500,350]"
+        [legend]="true">
       </ngx-charts-pie-chart>
 
     </section>
 
-    <!-- PR CYCLE -->
+    <!-- PR CYCLE TIME -->
 
-    <section
-      class="chart-section"
-      *ngIf="prCycleTimeData.length">
+    <section class="chart-section">
 
       <h2>PR Cycle Time</h2>
 
       <ngx-charts-line-chart
         [results]="prCycleTimeData"
-        [view]="[1150, 420]"
+        [view]="[900,300]"
+        [legend]="true"
         [xAxis]="true"
         [yAxis]="true"
-        [legend]="false"
-        [timeline]="true"
-        [autoScale]="true"
-        [animations]="true">
-
+        [showXAxisLabel]="true"
+        [showYAxisLabel]="true"
+        xAxisLabel="Date"
+        yAxisLabel="Hours">
       </ngx-charts-line-chart>
 
     </section>
