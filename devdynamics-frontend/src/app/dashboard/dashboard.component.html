@@ -1,12 +1,18 @@
 <div class="dashboard-container">
 
-  <h1>DevDynamics</h1>
+  <div class="dashboard-header">
+
+    <h1>DevDynamics Analytics</h1>
+
+    <div *ngIf="selectedCompany" class="selected-company">
+      {{ selectedCompany }}
+    </div>
+
+  </div>
 
   <!-- FILTERS -->
 
   <section class="filters">
-
-    <!-- START DATE -->
 
     <div class="filter-field">
 
@@ -15,12 +21,9 @@
       <input
         type="date"
         [(ngModel)]="startDate"
-        (change)="onFiltersChanged()"
-      />
+        (change)="onFiltersChanged()" />
 
     </div>
-
-    <!-- END DATE -->
 
     <div class="filter-field">
 
@@ -29,12 +32,9 @@
       <input
         type="date"
         [(ngModel)]="endDate"
-        (change)="onFiltersChanged()"
-      />
+        (change)="onFiltersChanged()" />
 
     </div>
-
-    <!-- CONTRIBUTOR -->
 
     <div class="filter-field">
 
@@ -44,12 +44,13 @@
 
         <div
           class="custom-select__trigger"
-          (click)="$event.stopPropagation(); dropdownOpen = !dropdownOpen"
-        >
+          (click)="$event.stopPropagation(); dropdownOpen = !dropdownOpen">
 
-          <span>{{ contributor || 'All Contributors' }}</span>
+          <span>
+            {{ contributor || 'All Contributors' }}
+          </span>
 
-          <span>▼</span>
+          <span class="arrow">▼</span>
 
         </div>
 
@@ -57,17 +58,19 @@
 
           <div
             class="custom-option"
-            (click)="selectContributor('')"
-          >
+            (click)="selectContributor('')">
+
             All Contributors
+
           </div>
 
           <div
             *ngFor="let item of contributors"
             class="custom-option"
-            (click)="selectContributor(item)"
-          >
+            (click)="selectContributor(item)">
+
             {{ item }}
+
           </div>
 
         </div>
@@ -80,55 +83,57 @@
 
   <!-- LOADING -->
 
-  <section *ngIf="loading">
-
-    <p>Loading dashboard...</p>
-
+  <section *ngIf="loading" class="loading-box">
+    Loading dashboard...
   </section>
 
-  <!-- DATE ERROR -->
+  <!-- ERRORS -->
 
-  <section *ngIf="dateRangeMessage">
-
-    <p>{{ dateRangeMessage }}</p>
-
+  <section *ngIf="dateRangeMessage" class="error-box">
+    {{ dateRangeMessage }}
   </section>
 
-  <!-- API ERROR -->
-
-  <section *ngIf="errorMessage">
-
-    <p>{{ errorMessage }}</p>
-
+  <section *ngIf="errorMessage" class="error-box">
+    {{ errorMessage }}
   </section>
 
   <!-- EMPTY -->
 
-  <section *ngIf="hasNoData && !loading">
-
-    <p>No data found. Try adjusting filters.</p>
-
+  <section *ngIf="hasNoData && !loading" class="empty-box">
+    No data found for selected filters.
   </section>
 
-  <!-- DASHBOARD -->
+  <!-- CONTENT -->
 
   <ng-container *ngIf="!loading && !hasNoData">
 
     <!-- SUMMARY -->
 
-    <section class="summary-section">
+    <section class="summary-grid">
 
-      <h2>Summary</h2>
+      <div class="summary-card">
+        <span>Total Commits</span>
+        <h2>{{ summary.totalCommits }}</h2>
+      </div>
 
-      <p>Commits: {{ summary.totalCommits }}</p>
+      <div class="summary-card">
+        <span>Pull Requests</span>
+        <h2>{{ summary.totalPRs }}</h2>
+      </div>
 
-      <p>PRs: {{ summary.totalPRs }}</p>
+      <div class="summary-card">
+        <span>Merges</span>
+        <h2>{{ summary.totalMerges }}</h2>
+      </div>
 
-      <p>Merges: {{ summary.totalMerges }}</p>
+      <div class="summary-card">
+        <span>Contributors</span>
+        <h2>{{ summary.contributorCount }}</h2>
+      </div>
 
     </section>
 
-    <!-- COMMITS LINE CHART -->
+    <!-- COMMIT CHART -->
 
     <section class="chart-section">
 
@@ -136,19 +141,19 @@
 
       <ngx-charts-line-chart
         [results]="commitFrequencyData"
-        [view]="[900,300]"
-        [legend]="true"
+        [scheme]="colorScheme"
+        [view]="[1150, 420]"
         [xAxis]="true"
         [yAxis]="true"
-        [showXAxisLabel]="true"
-        [showYAxisLabel]="true"
-        xAxisLabel="Date"
-        yAxisLabel="Commits">
+        [legend]="false"
+        [timeline]="true"
+        [autoScale]="true"
+        [animations]="true">
       </ngx-charts-line-chart>
 
     </section>
 
-    <!-- ACTIVITY BREAKDOWN -->
+    <!-- BREAKDOWN -->
 
     <section class="chart-section">
 
@@ -156,19 +161,18 @@
 
       <ngx-charts-bar-vertical-2d
         [results]="activityBreakdownData"
-        [view]="[900,400]"
+        [scheme]="colorScheme"
+        [view]="[1150, 520]"
         [legend]="true"
         [xAxis]="true"
         [yAxis]="true"
-        [showXAxisLabel]="true"
-        [showYAxisLabel]="true"
-        xAxisLabel="Date"
-        yAxisLabel="Count">
+        [animations]="true"
+        [barPadding]="10">
       </ngx-charts-bar-vertical-2d>
 
     </section>
 
-    <!-- PIE CHART -->
+    <!-- PIE -->
 
     <section class="chart-section">
 
@@ -176,13 +180,17 @@
 
       <ngx-charts-pie-chart
         [results]="activityShareData"
-        [view]="[500,350]"
-        [legend]="true">
+        [scheme]="colorScheme"
+        [view]="[1000, 420]"
+        [legend]="true"
+        [labels]="true"
+        [doughnut]="true"
+        [animations]="true">
       </ngx-charts-pie-chart>
 
     </section>
 
-    <!-- PR CYCLE TIME -->
+    <!-- PR -->
 
     <section class="chart-section">
 
@@ -190,14 +198,14 @@
 
       <ngx-charts-line-chart
         [results]="prCycleTimeData"
-        [view]="[900,300]"
-        [legend]="true"
+        [scheme]="colorScheme"
+        [view]="[1150, 420]"
         [xAxis]="true"
         [yAxis]="true"
-        [showXAxisLabel]="true"
-        [showYAxisLabel]="true"
-        xAxisLabel="Date"
-        yAxisLabel="Hours">
+        [legend]="false"
+        [timeline]="true"
+        [autoScale]="true"
+        [animations]="true">
       </ngx-charts-line-chart>
 
     </section>
