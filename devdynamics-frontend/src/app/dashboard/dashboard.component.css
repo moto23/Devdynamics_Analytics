@@ -1,215 +1,180 @@
-<div class="dashboard-container">
+.dashboard-container {
+  max-width: 1400px;
+  margin: 40px auto;
+  padding: 20px;
+}
+
+.dashboard-header h1 {
+  font-size: 42px;
+  font-weight: 800;
+  margin-bottom: 24px;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 32px;
+
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+
+  border: 1px solid #e2e8f0;
+  box-shadow:
+    0 10px 30px rgba(0,0,0,0.05);
+}
+
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-field label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.filter-field input {
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  font-size: 15px;
+}
+
+.custom-select {
+  position: relative;
+}
+
+.custom-select__trigger {
+  padding: 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+
+  display: flex;
+  justify-content: space-between;
+
+  cursor: pointer;
+}
+
+.custom-select__options {
+  position: absolute;
+  width: 100%;
+  top: 110%;
+
+  background: white;
+  border-radius: 12px;
+
+  overflow: hidden;
+
+  display: none;
+
+  border: 1px solid #e2e8f0;
+
+  z-index: 1000;
+}
+
+.custom-select.open .custom-select__options {
+  display: block;
+}
+
+.custom-option {
+  padding: 14px;
+  cursor: pointer;
+}
+
+.custom-option:hover {
+  background: #f1f5f9;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+
+  margin-bottom: 32px;
+}
 
-  <div class="dashboard-header">
+.summary-card {
+  background: white;
+  border-radius: 20px;
+  padding: 28px;
 
-    <h1>DevDynamics Analytics</h1>
+  border: 1px solid #e2e8f0;
 
-    <div *ngIf="selectedCompany" class="selected-company">
-      {{ selectedCompany }}
-    </div>
+  box-shadow:
+    0 10px 30px rgba(0,0,0,0.05);
+}
 
-  </div>
+.summary-card span {
+  color: #64748b;
+  font-size: 14px;
+}
 
-  <!-- FILTERS -->
+.summary-card h2 {
+  margin-top: 14px;
+  font-size: 42px;
+  font-weight: 800;
+}
 
-  <section class="filters">
+.chart-section {
+  background: white;
 
-    <div class="filter-field">
+  border-radius: 24px;
+  padding: 30px;
 
-      <label>Start Date</label>
+  margin-bottom: 32px;
 
-      <input
-        type="date"
-        [(ngModel)]="startDate"
-        (change)="onFiltersChanged()" />
+  border: 1px solid #e2e8f0;
 
-    </div>
+  overflow-x: auto;
 
-    <div class="filter-field">
+  box-shadow:
+    0 10px 30px rgba(0,0,0,0.05);
+}
 
-      <label>End Date</label>
+.chart-section h2 {
+  margin-bottom: 24px;
+  font-size: 24px;
+  font-weight: 700;
+}
 
-      <input
-        type="date"
-        [(ngModel)]="endDate"
-        (change)="onFiltersChanged()" />
+.loading-box,
+.error-box,
+.empty-box {
+  background: white;
+  padding: 20px;
+  border-radius: 14px;
+  margin-bottom: 20px;
+}
 
-    </div>
+.error-box {
+  color: red;
+}
 
-    <div class="filter-field">
+@media (max-width: 1100px) {
 
-      <label>Contributor</label>
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 
-      <div class="custom-select" [class.open]="dropdownOpen">
+  .filters {
+    grid-template-columns: 1fr;
+  }
+}
 
-        <div
-          class="custom-select__trigger"
-          (click)="$event.stopPropagation(); dropdownOpen = !dropdownOpen">
+@media (max-width: 700px) {
 
-          <span>
-            {{ contributor || 'All Contributors' }}
-          </span>
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
 
-          <span class="arrow">▼</span>
-
-        </div>
-
-        <div class="custom-select__options">
-
-          <div
-            class="custom-option"
-            (click)="selectContributor('')">
-
-            All Contributors
-
-          </div>
-
-          <div
-            *ngFor="let item of contributors"
-            class="custom-option"
-            (click)="selectContributor(item)">
-
-            {{ item }}
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </div>
-
-  </section>
-
-  <!-- LOADING -->
-
-  <section *ngIf="loading" class="loading-box">
-    Loading dashboard...
-  </section>
-
-  <!-- ERRORS -->
-
-  <section *ngIf="dateRangeMessage" class="error-box">
-    {{ dateRangeMessage }}
-  </section>
-
-  <section *ngIf="errorMessage" class="error-box">
-    {{ errorMessage }}
-  </section>
-
-  <!-- EMPTY -->
-
-  <section *ngIf="hasNoData && !loading" class="empty-box">
-    No data found for selected filters.
-  </section>
-
-  <!-- CONTENT -->
-
-  <ng-container *ngIf="!loading && !hasNoData">
-
-    <!-- SUMMARY -->
-
-    <section class="summary-grid">
-
-      <div class="summary-card">
-        <span>Total Commits</span>
-        <h2>{{ summary.totalCommits }}</h2>
-      </div>
-
-      <div class="summary-card">
-        <span>Pull Requests</span>
-        <h2>{{ summary.totalPRs }}</h2>
-      </div>
-
-      <div class="summary-card">
-        <span>Merges</span>
-        <h2>{{ summary.totalMerges }}</h2>
-      </div>
-
-      <div class="summary-card">
-        <span>Contributors</span>
-        <h2>{{ summary.contributorCount }}</h2>
-      </div>
-
-    </section>
-
-    <!-- COMMIT CHART -->
-
-    <section class="chart-section">
-
-      <h2>Commit Frequency</h2>
-
-      <ngx-charts-line-chart
-        [results]="commitFrequencyData"
-        [scheme]="colorScheme"
-        [view]="[1150, 420]"
-        [xAxis]="true"
-        [yAxis]="true"
-        [legend]="false"
-        [timeline]="true"
-        [autoScale]="true"
-        [animations]="true">
-      </ngx-charts-line-chart>
-
-    </section>
-
-    <!-- BREAKDOWN -->
-
-    <section class="chart-section">
-
-      <h2>Activity Breakdown</h2>
-
-      <ngx-charts-bar-vertical-2d
-        [results]="activityBreakdownData"
-        [scheme]="colorScheme"
-        [view]="[1150, 520]"
-        [legend]="true"
-        [xAxis]="true"
-        [yAxis]="true"
-        [animations]="true"
-        [barPadding]="10">
-      </ngx-charts-bar-vertical-2d>
-
-    </section>
-
-    <!-- PIE -->
-
-    <section class="chart-section">
-
-      <h2>Activity Share</h2>
-
-      <ngx-charts-pie-chart
-        [results]="activityShareData"
-        [scheme]="colorScheme"
-        [view]="[1000, 420]"
-        [legend]="true"
-        [labels]="true"
-        [doughnut]="true"
-        [animations]="true">
-      </ngx-charts-pie-chart>
-
-    </section>
-
-    <!-- PR -->
-
-    <section class="chart-section">
-
-      <h2>PR Cycle Time</h2>
-
-      <ngx-charts-line-chart
-        [results]="prCycleTimeData"
-        [scheme]="colorScheme"
-        [view]="[1150, 420]"
-        [xAxis]="true"
-        [yAxis]="true"
-        [legend]="false"
-        [timeline]="true"
-        [autoScale]="true"
-        [animations]="true">
-      </ngx-charts-line-chart>
-
-    </section>
-
-  </ng-container>
-
-</div>
+  .dashboard-header h1 {
+    font-size: 30px;
+  }
+}
