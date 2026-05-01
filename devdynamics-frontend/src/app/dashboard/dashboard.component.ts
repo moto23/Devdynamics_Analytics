@@ -198,13 +198,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         this.hasNoData = activities.length === 0;
 
-        this.contributors = [
-          ...new Set(
-            activities
-              .map((x: any) => x.contributor)
-              .filter(Boolean)
-          )
-        ];
+this.contributors = Array.from(
+  new Set(
+    activities
+      .map((x: any) => x.contributor)
+      .filter((x: any): x is string => !!x)
+  )
+).sort();
 
         this.buildCharts(activities, pr);
 
