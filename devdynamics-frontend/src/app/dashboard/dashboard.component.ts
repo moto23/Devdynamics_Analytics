@@ -8,6 +8,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgxChartsModule } from '@swimlane/ngx-charts';
+
 import {
   forkJoin,
   Subscription,
@@ -28,8 +29,15 @@ import {
   SummaryResult
 } from '../services/graphql.service';
 
-type ChartPoint = { name: string; value: number };
-type ChartSeries = { name: string; series: ChartPoint[] };
+type ChartPoint = {
+  name: string;
+  value: number;
+};
+
+type ChartSeries = {
+  name: string;
+  series: ChartPoint[];
+};
 
 @Component({
   selector: 'app-dashboard',
@@ -75,14 +83,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
   constructor(
     private gql: GraphqlService,
     private route: ActivatedRoute
-  ) { }
+  ) {}
 
   // =========================
   // CLICK OUTSIDE DROPDOWN
   // =========================
+
   @HostListener('document:click', ['$event'])
   onClickOutside(event: MouseEvent) {
     const target = event.target as HTMLElement;
+
     if (!target.closest('.custom-select')) {
       this.dropdownOpen = false;
     }
@@ -91,6 +101,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // =========================
   // INIT
   // =========================
+
   ngOnInit() {
 
     this.routeSub = this.route.queryParams.subscribe(params => {
@@ -98,25 +109,30 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.triggerFilter();
     });
 
-    // 🔥 Debounce pipeline
     this.filterSubject.pipe(
       debounceTime(400),
       switchMap(() => this.fetchData())
     ).subscribe();
 
-    // Auto refresh
+    // auto refresh
     this.refreshInterval = setInterval(() => {
       this.triggerFilter();
     }, 5000);
   }
 
   ngOnDestroy() {
-    if (this.refreshInterval) clearInterval(this.refreshInterval);
-    if (this.routeSub) this.routeSub.unsubscribe();
+
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+    }
+
+    if (this.routeSub) {
+      this.routeSub.unsubscribe();
+    }
   }
 
   // =========================
-  // FILTER HANDLERS
+  // FILTERS
   // =========================
 
   onFiltersChanged() {
@@ -134,59 +150,105 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   // =========================
-  // FETCH DATA (MAIN)
+  // FETCH DATA
   // =========================
 
   private fetchData() {
 
-    const start = this.startDate ? this.toISO(this.startDate) : null;
-    const end = this.endDate ? this.toISO(this.endDate) : null;
+    const start = this.startDate
+      ? this.toISO(this.startDate)
+      : null;
 
-    this.dateRangeMessage = '';
+    const end = this.endDate
+      ? this.toISO(this.endDate)
+      : null;
+
+    this.loading = true;
     this.errorMessage = '';
+    this.dateRangeMessage = '';
     this.hasNoData = false;
 
-    // ✅ DATE VALIDATION
+    // DATE VALIDATION
     if (!this.isDateRangeValid(start, end)) {
-      this.dateRangeMessage = 'Start date must be before or equal to end date';
+
+      this.dateRangeMessage =
+        'Start date must be before or equal to end date';
+
+      this.loading = false;
+
       this.buildCharts([], []);
+
       return of(null);
     }
 
-    this.loading = true;
-
     return forkJoin({
-      activities: this.gql.getDevActivities(start, end, this.contributor || null, this.selectedCompany),
-      summary: this.gql.getSummaryStats(start, end, this.contributor || null, this.selectedCompany),
-      pr: this.gql.getPRCycleTime(start, end, this.selectedCompany)
+
+      activities: this.gql.getDevActivities(
+        start,
+        end,
+        this.contributor || null,
+        this.selectedCompany
+      ),
+
+      summary: this.gql.getSummaryStats(
+        start,
+        end,
+        this.contributor || null,
+        this.selectedCompany
+      ),
+
+      pr: this.gql.getPRCycleTime(
+        start,
+        end,
+        this.selectedCompany
+      )
+
     }).pipe(
 
       retry(2),
 
       catchError(err => {
+
         console.error('API ERROR:', err);
-        this.errorMessage = 'Network error. Try again.';
+
+        this.errorMessage =
+          'Unable to fetch dashboard data';
+
         this.loading = false;
+
         return of(null);
       }),
 
       switchMap((res: any) => {
 
-        if (!res) return of(null);
+        if (!res) {
+          return of(null);
+        }
 
-        const { activities, summary, pr } = res;
+        const activities: DevActivity[] =
+          res.activities || [];
+
+        const summary: SummaryResult =
+          res.summary || this.summary;
+
+        const pr: PRCycleTimeResult[] =
+          res.pr || [];
 
         this.summary = summary;
 
-        this.hasNoData = !activities || activities.length === 0;
+        this.hasNoData =
+          !activities || activities.length === 0;
 
-        // ✅ FIXED TYPE ERROR HERE
+        // contributors dropdown
         this.contributors = Array.from(
-          new Set((activities as DevActivity[]).map((a: DevActivity) => a.contributor))
-        )
-          .filter((x): x is string => !!x)
-          .sort();
+          new Set(
+            activities
+              .map(a => a.contributor)
+              .filter(Boolean)
+          )
+        ).sort();
 
+        // build charts
         this.buildCharts(activities, pr);
 
         this.loading = false;
@@ -204,31 +266,51 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return new Date(date).toISOString();
   }
 
-  private isDateRangeValid(start: string | null, end: string | null): boolean {
-    if (!start || !end) return true;
+  private isDateRangeValid(
+    start: string | null,
+    end: string | null
+  ): boolean {
+
+    if (!start || !end) {
+      return true;
+    }
+
     return new Date(start) <= new Date(end);
   }
 
   // =========================
-  // CHART BUILDER
+  // BUILD CHARTS
   // =========================
 
-  buildCharts(data: DevActivity[], pr: PRCycleTimeResult[]) {
+  buildCharts(
+    data: DevActivity[],
+    pr: PRCycleTimeResult[]
+  ) {
 
+    // EMPTY CASE
     if (!data || data.length === 0) {
+
       this.commitFrequencyData = [];
       this.activityBreakdownData = [];
       this.activityShareData = [];
       this.prCycleTimeData = [];
+
       return;
     }
 
     const grouped: Record<string, any> = {};
 
+    // GROUP DATA
     data.forEach(a => {
+
+      if (!a.time) {
+        return;
+      }
+
       const date = a.time.split('T')[0];
 
       if (!grouped[date]) {
+
         grouped[date] = {
           commits: 0,
           prs: 0,
@@ -238,44 +320,95 @@ export class DashboardComponent implements OnInit, OnDestroy {
         };
       }
 
-      grouped[date].commits += a.commits;
-      grouped[date].prs += a.pullRequests;
-      grouped[date].merges += a.merges;
-      grouped[date].meetings += a.meetings;
-      grouped[date].docs += a.documentation;
+      grouped[date].commits += Number(a.commits || 0);
+      grouped[date].prs += Number(a.pullRequests || 0);
+      grouped[date].merges += Number(a.merges || 0);
+      grouped[date].meetings += Number(a.meetings || 0);
+      grouped[date].docs += Number(a.documentation || 0);
     });
 
     const dates = Object.keys(grouped).sort();
 
-    this.commitFrequencyData = [{
-      name: 'Commits',
-      series: dates.map(d => ({
-        name: d,
-        value: grouped[d].commits
-      }))
-    }];
+    // =========================
+    // COMMITS LINE CHART
+    // =========================
+
+    this.commitFrequencyData = [
+      {
+        name: 'Commits',
+        series: dates.map(d => ({
+          name: d,
+          value: Number(grouped[d].commits || 0)
+        }))
+      }
+    ];
+
+    // =========================
+    // ACTIVITY BREAKDOWN
+    // =========================
 
     this.activityBreakdownData = dates.map(d => ({
       name: d,
       series: [
-        { name: 'Commits', value: grouped[d].commits },
-        { name: 'PRs', value: grouped[d].prs },
-        { name: 'Merges', value: grouped[d].merges }
+        {
+          name: 'Commits',
+          value: Number(grouped[d].commits || 0)
+        },
+        {
+          name: 'PRs',
+          value: Number(grouped[d].prs || 0)
+        },
+        {
+          name: 'Merges',
+          value: Number(grouped[d].merges || 0)
+        }
       ]
     }));
 
+    // =========================
+    // PIE CHART
+    // =========================
+
     this.activityShareData = [
-      { name: 'Commits', value: this.summary.totalCommits },
-      { name: 'PRs', value: this.summary.totalPRs },
-      { name: 'Merges', value: this.summary.totalMerges }
+      {
+        name: 'Commits',
+        value: Number(this.summary.totalCommits || 0)
+      },
+      {
+        name: 'PRs',
+        value: Number(this.summary.totalPRs || 0)
+      },
+      {
+        name: 'Merges',
+        value: Number(this.summary.totalMerges || 0)
+      }
     ];
 
-    this.prCycleTimeData = [{
-      name: 'PR Cycle Time',
-      series: (pr || []).map(x => ({
-        name: x.date.split('T')[0],
-        value: x.avgHours
-      }))
-    }];
+    // =========================
+    // PR CYCLE TIME
+    // =========================
+
+    this.prCycleTimeData = [
+      {
+        name: 'PR Cycle Time',
+        series: (pr || [])
+          .filter(x =>
+            x &&
+            x.date &&
+            x.avgHours !== null &&
+            x.avgHours !== undefined &&
+            !isNaN(Number(x.avgHours))
+          )
+          .map(x => ({
+            name: x.date.split('T')[0],
+            value: Number(x.avgHours)
+          }))
+      }
+    ];
+
+    console.log('commitFrequencyData', this.commitFrequencyData);
+    console.log('activityBreakdownData', this.activityBreakdownData);
+    console.log('activityShareData', this.activityShareData);
+    console.log('prCycleTimeData', this.prCycleTimeData);
   }
 }
