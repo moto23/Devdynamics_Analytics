@@ -3,86 +3,203 @@
   <h1>DevDynamics</h1>
 
   <!-- FILTERS -->
+
   <section class="filters">
 
+    <!-- START DATE -->
+
     <div class="filter-field">
+
       <label>Start Date</label>
-      <input type="date" [(ngModel)]="startDate" (change)="onFiltersChanged()" />
+
+      <input
+        type="date"
+        [(ngModel)]="startDate"
+        (change)="onFiltersChanged()"
+      />
+
     </div>
 
+    <!-- END DATE -->
+
     <div class="filter-field">
+
       <label>End Date</label>
-      <input type="date" [(ngModel)]="endDate" (change)="onFiltersChanged()" />
+
+      <input
+        type="date"
+        [(ngModel)]="endDate"
+        (change)="onFiltersChanged()"
+      />
+
     </div>
 
+    <!-- CONTRIBUTOR -->
+
     <div class="filter-field">
+
       <label>Contributor</label>
 
       <div class="custom-select" [class.open]="dropdownOpen">
 
-        <div class="custom-select__trigger"
-             (click)="$event.stopPropagation(); dropdownOpen = !dropdownOpen">
+        <div
+          class="custom-select__trigger"
+          (click)="$event.stopPropagation(); dropdownOpen = !dropdownOpen"
+        >
 
           <span>{{ contributor || 'All Contributors' }}</span>
+
           <span>▼</span>
 
         </div>
 
         <div class="custom-select__options">
 
-          <div class="custom-option" (click)="selectContributor('')">
+          <div
+            class="custom-option"
+            (click)="selectContributor('')"
+          >
             All Contributors
           </div>
 
-          <div *ngFor="let item of contributors"
-               class="custom-option"
-               (click)="selectContributor(item)">
+          <div
+            *ngFor="let item of contributors"
+            class="custom-option"
+            (click)="selectContributor(item)"
+          >
             {{ item }}
           </div>
 
         </div>
+
       </div>
+
     </div>
 
   </section>
 
-  <!-- 🔥 SKELETON -->
-  <section *ngIf="loading" class="skeleton-container">
-    <div class="skeleton-card"></div>
-    <div class="skeleton-card"></div>
-    <div class="skeleton-chart"></div>
+  <!-- LOADING -->
+
+  <section *ngIf="loading">
+
+    <p>Loading dashboard...</p>
+
   </section>
 
   <!-- DATE ERROR -->
+
   <section *ngIf="dateRangeMessage">
+
     <p>{{ dateRangeMessage }}</p>
+
   </section>
 
   <!-- API ERROR -->
+
   <section *ngIf="errorMessage">
+
     <p>{{ errorMessage }}</p>
+
   </section>
 
   <!-- EMPTY -->
+
   <section *ngIf="hasNoData && !loading">
+
     <p>No data found. Try adjusting filters.</p>
+
   </section>
 
-  <!-- DATA -->
+  <!-- DASHBOARD -->
+
   <ng-container *ngIf="!loading && !hasNoData">
 
+    <!-- SUMMARY -->
+
     <section class="summary-section">
+
       <h2>Summary</h2>
+
       <p>Commits: {{ summary.totalCommits }}</p>
+
       <p>PRs: {{ summary.totalPRs }}</p>
+
       <p>Merges: {{ summary.totalMerges }}</p>
+
     </section>
 
+    <!-- COMMITS LINE CHART -->
+
     <section class="chart-section">
+
+      <h2>Commit Frequency</h2>
+
       <ngx-charts-line-chart
         [results]="commitFrequencyData"
-        [view]="[900,300]">
+        [view]="[900,300]"
+        [legend]="true"
+        [xAxis]="true"
+        [yAxis]="true"
+        [showXAxisLabel]="true"
+        [showYAxisLabel]="true"
+        xAxisLabel="Date"
+        yAxisLabel="Commits">
       </ngx-charts-line-chart>
+
+    </section>
+
+    <!-- ACTIVITY BREAKDOWN -->
+
+    <section class="chart-section">
+
+      <h2>Activity Breakdown</h2>
+
+      <ngx-charts-bar-vertical-2d
+        [results]="activityBreakdownData"
+        [view]="[900,400]"
+        [legend]="true"
+        [xAxis]="true"
+        [yAxis]="true"
+        [showXAxisLabel]="true"
+        [showYAxisLabel]="true"
+        xAxisLabel="Date"
+        yAxisLabel="Count">
+      </ngx-charts-bar-vertical-2d>
+
+    </section>
+
+    <!-- PIE CHART -->
+
+    <section class="chart-section">
+
+      <h2>Activity Share</h2>
+
+      <ngx-charts-pie-chart
+        [results]="activityShareData"
+        [view]="[500,350]"
+        [legend]="true">
+      </ngx-charts-pie-chart>
+
+    </section>
+
+    <!-- PR CYCLE TIME -->
+
+    <section class="chart-section">
+
+      <h2>PR Cycle Time</h2>
+
+      <ngx-charts-line-chart
+        [results]="prCycleTimeData"
+        [view]="[900,300]"
+        [legend]="true"
+        [xAxis]="true"
+        [yAxis]="true"
+        [showXAxisLabel]="true"
+        [showYAxisLabel]="true"
+        xAxisLabel="Date"
+        yAxisLabel="Hours">
+      </ngx-charts-line-chart>
+
     </section>
 
   </ng-container>
