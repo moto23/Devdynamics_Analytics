@@ -91,6 +91,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   @HostListener('document:click', ['$event'])
   onClickOutside(event: MouseEvent) {
+
     const target = event.target as HTMLElement;
 
     if (!target.closest('.custom-select')) {
@@ -105,16 +106,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnInit() {
 
     this.routeSub = this.route.queryParams.subscribe(params => {
+
       this.selectedCompany = params['company'] || null;
+
       this.triggerFilter();
     });
 
     this.filterSubject.pipe(
+
       debounceTime(400),
+
       switchMap(() => this.fetchData())
+
     ).subscribe();
 
-    // auto refresh
+    // AUTO REFRESH
     this.refreshInterval = setInterval(() => {
       this.triggerFilter();
     }, 5000);
@@ -140,8 +146,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   selectContributor(val: string) {
+
     this.contributor = val;
+
     this.dropdownOpen = false;
+
     this.triggerFilter();
   }
 
@@ -156,19 +165,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private fetchData() {
 
     const start = this.startDate
-      ? this.toISO(this.startDate)
+      ? `${this.startDate}T00:00:00`
       : null;
 
     const end = this.endDate
-      ? this.toISO(this.endDate)
+      ? `${this.endDate}T23:59:59`
       : null;
 
     this.loading = true;
+
     this.errorMessage = '';
     this.dateRangeMessage = '';
     this.hasNoData = false;
 
     // DATE VALIDATION
+
     if (!this.isDateRangeValid(start, end)) {
 
       this.dateRangeMessage =
@@ -239,7 +250,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.hasNoData =
           !activities || activities.length === 0;
 
-        // contributors dropdown
+        // CONTRIBUTORS
+
         this.contributors = Array.from(
           new Set(
             activities
@@ -248,7 +260,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
           )
         ).sort();
 
-        // build charts
+        // BUILD CHARTS
+
         this.buildCharts(activities, pr);
 
         this.loading = false;
@@ -261,10 +274,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // =========================
   // HELPERS
   // =========================
-
-  private toISO(date: string): string {
-    return new Date(date).toISOString();
-  }
 
   private isDateRangeValid(
     start: string | null,
@@ -287,7 +296,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     pr: PRCycleTimeResult[]
   ) {
 
-    // EMPTY CASE
+    // EMPTY
+
     if (!data || data.length === 0) {
 
       this.commitFrequencyData = [];
@@ -301,11 +311,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const grouped: Record<string, any> = {};
 
     // GROUP DATA
+
     data.forEach(a => {
 
-      if (!a.time) {
-        return;
-      }
+      if (!a.time) return;
 
       const date = a.time.split('T')[0];
 
@@ -344,7 +353,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     ];
 
     // =========================
-    // ACTIVITY BREAKDOWN
+    // BAR CHART
     // =========================
 
     this.activityBreakdownData = dates.map(d => ({
@@ -385,7 +394,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     ];
 
     // =========================
-    // PR CYCLE TIME
+    // PR CYCLE TIME CHART
     // =========================
 
     this.prCycleTimeData = [
