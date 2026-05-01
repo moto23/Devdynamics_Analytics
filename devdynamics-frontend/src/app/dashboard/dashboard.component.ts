@@ -29,6 +29,16 @@ import {
   SummaryResult
 } from '../services/graphql.service';
 
+type ChartPoint = {
+  name: string;
+  value: number;
+};
+
+type ChartSeries = {
+  name: string;
+  series: ChartPoint[];
+};
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -38,13 +48,13 @@ import {
 })
 export class DashboardComponent implements OnInit, OnDestroy {
 
+  private refreshInterval: any;
   private routeSub!: Subscription;
   private filterSubject = new Subject<void>();
 
   startDate = '';
   endDate = '';
   contributor = '';
-
   dropdownOpen = false;
 
   selectedCompany: string | null = null;
@@ -65,15 +75,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
     contributorCount: 0
   };
 
-  commitFrequencyData: any[] = [];
+  commitFrequencyData: ChartSeries[] = [];
   activityBreakdownData: any[] = [];
   activityShareData: any[] = [];
-  prCycleTimeData: any[] = [];
+  prCycleTimeData: ChartSeries[] = [];
 
   constructor(
     private gql: GraphqlService,
     private route: ActivatedRoute
   ) {}
+
+  // =========================
+  // CLICK OUTSIDE DROPDOWN
+  // =========================
 
   @HostListener('document:click', ['$event'])
   onClickOutside(event: MouseEvent) {
@@ -85,7 +99,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  ngOnInit(): void {
+  // =========================
+  // INIT
+  // =========================
+
+  ngOnInit() {
 
     this.routeSub = this.route.queryParams.subscribe(params => {
 
@@ -95,23 +113,39 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
 
     this.filterSubject.pipe(
-      debounceTime(300),
+
+      debounceTime(400),
+
       switchMap(() => this.fetchData())
+
     ).subscribe();
+
+    // AUTO REFRESH
+    this.refreshInterval = setInterval(() => {
+      this.triggerFilter();
+    }, 5000);
   }
 
-  ngOnDestroy(): void {
+  ngOnDestroy() {
+
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+    }
 
     if (this.routeSub) {
       this.routeSub.unsubscribe();
     }
   }
 
-  onFiltersChanged(): void {
+  // =========================
+  // FILTERS
+  // =========================
+
+  onFiltersChanged() {
     this.triggerFilter();
   }
 
-  selectContributor(val: string): void {
+  selectContributor(val: string) {
 
     this.contributor = val;
 
@@ -120,23 +154,43 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.triggerFilter();
   }
 
-  private triggerFilter(): void {
+  private triggerFilter() {
     this.filterSubject.next();
   }
+
+  // =========================
+  // FETCH DATA
+  // =========================
 
   private fetchData() {
 
     const start = this.startDate
-      ? new Date(this.startDate).toISOString()
+      ? `${this.startDate}T00:00:00`
       : null;
 
     const end = this.endDate
-      ? new Date(this.endDate).toISOString()
+      ? `${this.endDate}T23:59:59`
       : null;
 
     this.loading = true;
 
     this.errorMessage = '';
+    this.dateRangeMessage = '';
+    this.hasNoData = false;
+
+    // DATE VALIDATION
+
+    if (!this.isDateRangeValid(start, end)) {
+
+      this.dateRangeMessage =
+        'Start date must be before or equal to end date';
+
+      this.loading = false;
+
+      this.buildCharts([], []);
+
+      return of(null);
+    }
 
     return forkJoin({
 
@@ -162,13 +216,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     }).pipe(
 
-      retry(1),
+      retry(2),
 
       catchError(err => {
 
-        console.error(err);
+        console.error('API ERROR:', err);
 
-        this.errorMessage = 'Failed to load dashboard data';
+        this.errorMessage =
+          'Unable to fetch dashboard data';
 
         this.loading = false;
 
@@ -181,30 +236,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
           return of(null);
         }
 
-        const activities = res.activities || [];
+        const activities: DevActivity[] =
+          res.activities || [];
 
-        const summary = res.summary || {
-          totalCommits: 0,
-          totalPRs: 0,
-          totalMerges: 0,
-          totalMeetings: 0,
-          totalDocs: 0,
-          contributorCount: 0
-        };
+        const summary: SummaryResult =
+          res.summary || this.summary;
 
-        const pr = res.pr || [];
+        const pr: PRCycleTimeResult[] =
+          res.pr || [];
 
         this.summary = summary;
 
-        this.hasNoData = activities.length === 0;
+        this.hasNoData =
+          !activities || activities.length === 0;
 
-this.contributors = Array.from(
-  new Set(
-    activities
-      .map((x: any) => x.contributor)
-      .filter((x: any): x is string => !!x)
-  )
-).sort();
+        // CONTRIBUTORS
+
+        this.contributors = Array.from(
+          new Set(
+            activities
+              .map(a => a.contributor)
+              .filter(Boolean)
+          )
+        ).sort();
+
+        // BUILD CHARTS
 
         this.buildCharts(activities, pr);
 
@@ -215,10 +271,32 @@ this.contributors = Array.from(
     );
   }
 
-  private buildCharts(
+  // =========================
+  // HELPERS
+  // =========================
+
+  private isDateRangeValid(
+    start: string | null,
+    end: string | null
+  ): boolean {
+
+    if (!start || !end) {
+      return true;
+    }
+
+    return new Date(start) <= new Date(end);
+  }
+
+  // =========================
+  // BUILD CHARTS
+  // =========================
+
+  buildCharts(
     data: DevActivity[],
     pr: PRCycleTimeResult[]
-  ): void {
+  ) {
+
+    // EMPTY
 
     if (!data || data.length === 0) {
 
@@ -230,7 +308,9 @@ this.contributors = Array.from(
       return;
     }
 
-    const grouped: any = {};
+    const grouped: Record<string, any> = {};
+
+    // GROUP DATA
 
     data.forEach(a => {
 
@@ -243,44 +323,60 @@ this.contributors = Array.from(
         grouped[date] = {
           commits: 0,
           prs: 0,
-          merges: 0
+          merges: 0,
+          meetings: 0,
+          docs: 0
         };
       }
 
       grouped[date].commits += Number(a.commits || 0);
       grouped[date].prs += Number(a.pullRequests || 0);
       grouped[date].merges += Number(a.merges || 0);
+      grouped[date].meetings += Number(a.meetings || 0);
+      grouped[date].docs += Number(a.documentation || 0);
     });
 
-    const dates = Object.keys(grouped);
+    const dates = Object.keys(grouped).sort();
+
+    // =========================
+    // COMMITS LINE CHART
+    // =========================
 
     this.commitFrequencyData = [
       {
         name: 'Commits',
-        series: dates.map(date => ({
-          name: date,
-          value: Number(grouped[date].commits || 0)
+        series: dates.map(d => ({
+          name: d,
+          value: Number(grouped[d].commits || 0)
         }))
       }
     ];
 
-    this.activityBreakdownData = dates.map(date => ({
-      name: date,
+    // =========================
+    // BAR CHART
+    // =========================
+
+    this.activityBreakdownData = dates.map(d => ({
+      name: d,
       series: [
         {
           name: 'Commits',
-          value: Number(grouped[date].commits || 0)
+          value: Number(grouped[d].commits || 0)
         },
         {
           name: 'PRs',
-          value: Number(grouped[date].prs || 0)
+          value: Number(grouped[d].prs || 0)
         },
         {
           name: 'Merges',
-          value: Number(grouped[date].merges || 0)
+          value: Number(grouped[d].merges || 0)
         }
       ]
     }));
+
+    // =========================
+    // PIE CHART
+    // =========================
 
     this.activityShareData = [
       {
@@ -297,21 +393,31 @@ this.contributors = Array.from(
       }
     ];
 
+    // =========================
+    // PR CYCLE TIME CHART
+    // =========================
+
     this.prCycleTimeData = [
       {
         name: 'PR Cycle Time',
-        series: pr
-          .filter(x => x?.date)
+        series: (pr || [])
+          .filter(x =>
+            x &&
+            x.date &&
+            x.avgHours !== null &&
+            x.avgHours !== undefined &&
+            !isNaN(Number(x.avgHours))
+          )
           .map(x => ({
             name: x.date.split('T')[0],
-            value: Number(x.avgHours || 0)
+            value: Number(x.avgHours)
           }))
       }
     ];
 
-    console.log(this.commitFrequencyData);
-    console.log(this.activityBreakdownData);
-    console.log(this.activityShareData);
-    console.log(this.prCycleTimeData);
+    console.log('commitFrequencyData', this.commitFrequencyData);
+    console.log('activityBreakdownData', this.activityBreakdownData);
+    console.log('activityShareData', this.activityShareData);
+    console.log('prCycleTimeData', this.prCycleTimeData);
   }
 }
