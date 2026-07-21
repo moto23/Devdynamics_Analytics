@@ -164,12 +164,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private fetchData() {
 
+    // The trailing Z is required. The GraphQL DateTime scalar rejects an
+    // ISO-8601 string with no timezone offset, so sending "...T00:00:00" made
+    // every date-filtered query fail. Activity timestamps are stored in UTC,
+    // so the selected day is interpreted as UTC.
     const start = this.startDate
-      ? `${this.startDate}T00:00:00`
+      ? `${this.startDate}T00:00:00.000Z`
       : null;
 
     const end = this.endDate
-      ? `${this.endDate}T23:59:59`
+      ? `${this.endDate}T23:59:59.999Z`
       : null;
 
     this.loading = true;
