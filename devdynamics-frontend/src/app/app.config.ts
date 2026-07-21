@@ -8,6 +8,7 @@ import { provideApollo } from 'apollo-angular';
 import { HttpLink } from 'apollo-angular/http';
 
 import { routes } from './app.routes';
+import { environment } from '../environments/environment';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -20,7 +21,7 @@ export const appConfig: ApplicationConfig = {
       const httpLink = inject(HttpLink);
 
       return {
-        link: httpLink.create({ uri: 'https://devdynamics-api.onrender.com/graphql' }),
+        link: httpLink.create({ uri: environment.graphqlUri }),
         cache: new InMemoryCache()
       };
     })

@@ -12,6 +12,9 @@ WORKDIR /app
 
 COPY --from=build /app/out .
 
-ENV ASPNETCORE_URLS=http://0.0.0.0:$5236
+# Render injects PORT at runtime; Program.cs binds to it explicitly.
+# 5236 is only the local fallback.
+ENV PORT=5236
+EXPOSE 5236
 
 ENTRYPOINT ["dotnet", "DevDynamics.API.dll"]

@@ -13,12 +13,21 @@ bin/
 obj/
 
 # =========================
+# Local database files
+# =========================
+*.db
+*.db-shm
+*.db-wal
+
+# =========================
 # IDE / OS
 # =========================
 .vscode/
+.vs/
 *.user
 *.suo
 .DS_Store
+UpgradeLog.htm
 
 # =========================
 # Logs

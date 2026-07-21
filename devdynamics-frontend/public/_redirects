@@ -1,0 +1,3 @@
+# Angular SPA fallback for Render static sites.
+# Without this, deep links such as /companies return 404 on refresh.
+/*    /index.html   200

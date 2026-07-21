@@ -7,7 +7,6 @@ var builder = WebApplication.CreateBuilder(args);
 // =========================
 // Services
 // =========================
-builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -18,13 +17,29 @@ builder.Services
     .AddGraphQLServer()
     .AddQueryType<Query>();
 
-// ✅ CORS (allow frontend)
+// CORS scoped to the known frontends instead of AllowAnyOrigin.
+// Falls back to the deployed origins in code so a missing or malformed config
+// section can never leave the production frontend unable to reach the API.
+string[] defaultOrigins =
+[
+    "https://devdynamics-frontend.onrender.com",
+    "http://localhost:4200"
+];
+
+var configuredOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>();
+
+var allowedOrigins = configuredOrigins is { Length: > 0 }
+    ? configuredOrigins
+    : defaultOrigins;
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy
-            .AllowAnyOrigin()
+            .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -43,15 +58,20 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowFrontend");
 
-// ⚠️ Optional: can keep or remove
-app.UseHttpsRedirection();
+// NOTE: deliberately no UseHttpsRedirection(). Render terminates TLS at its
+// proxy and forwards plain HTTP to the container, so redirecting here would
+// produce a redirect loop.
 
-app.MapControllers();
-
-// ✅ GraphQL endpoint
+// GraphQL endpoint
 app.MapGraphQL("/graphql");
 
-// ✅ Test route
+// Liveness probe (also useful for warming the free-tier cold start).
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "healthy",
+    timestamp = DateTime.UtcNow
+}));
+
 app.MapGet("/", () => "API is running 🚀");
 
 // =========================
@@ -61,11 +81,16 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     dbContext.Database.Migrate();
-    DataSeeder.Seed(dbContext);
+
+    // Synthetic seed data is a temporary stand-in until GitHub ingestion lands.
+    if (builder.Configuration.GetValue("Seed:Enabled", true))
+    {
+        DataSeeder.Seed(dbContext);
+    }
 }
 
 // =========================
-// 🔥 Render Port Binding (CRITICAL)
+// Render Port Binding
 // =========================
-var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5236";
 app.Run($"http://0.0.0.0:{port}");

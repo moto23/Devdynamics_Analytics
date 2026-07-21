@@ -48,8 +48,8 @@ type ChartSeries = {
 })
 export class DashboardComponent implements OnInit, OnDestroy {
 
-  private refreshInterval: any;
   private routeSub!: Subscription;
+  private filterSub!: Subscription;
   private filterSubject = new Subject<void>();
 
   startDate = '';
@@ -112,29 +112,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.triggerFilter();
     });
 
-    this.filterSubject.pipe(
+    this.filterSub = this.filterSubject.pipe(
 
       debounceTime(400),
 
       switchMap(() => this.fetchData())
 
     ).subscribe();
-
-    // AUTO REFRESH
-    this.refreshInterval = setInterval(() => {
-      this.triggerFilter();
-    }, 5000);
   }
 
   ngOnDestroy() {
 
-    if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
-    }
-
     if (this.routeSub) {
       this.routeSub.unsubscribe();
     }
+
+    if (this.filterSub) {
+      this.filterSub.unsubscribe();
+    }
+  }
+
+  /** Explicit user-triggered reload, replacing the old 5s polling interval. */
+  refresh() {
+    this.triggerFilter();
   }
 
   // =========================
@@ -187,7 +187,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
       this.loading = false;
 
-      this.buildCharts([], []);
+      this.resetData();
 
       return of(null);
     }
@@ -223,9 +223,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
         console.error('API ERROR:', err);
 
         this.errorMessage =
-          'Unable to fetch dashboard data';
+          'Unable to fetch dashboard data. The API may be waking up — try again in a moment.';
 
         this.loading = false;
+
+        // Clear charts and summary so a failed request never leaves stale
+        // numbers on screen looking like live data.
+        this.resetData();
 
         return of(null);
       }),
@@ -274,6 +278,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
   // =========================
   // HELPERS
   // =========================
+
+  /** Clears every rendered figure. Used on error and on an invalid date range. */
+  private resetData() {
+
+    this.summary = {
+      totalCommits: 0,
+      totalPRs: 0,
+      totalMerges: 0,
+      totalMeetings: 0,
+      totalDocs: 0,
+      contributorCount: 0
+    };
+
+    this.commitFrequencyData = [];
+    this.activityBreakdownData = [];
+    this.activityShareData = [];
+    this.prCycleTimeData = [];
+  }
 
   private isDateRangeValid(
     start: string | null,
@@ -415,9 +437,5 @@ export class DashboardComponent implements OnInit, OnDestroy {
       }
     ];
 
-    console.log('commitFrequencyData', this.commitFrequencyData);
-    console.log('activityBreakdownData', this.activityBreakdownData);
-    console.log('activityShareData', this.activityShareData);
-    console.log('prCycleTimeData', this.prCycleTimeData);
   }
 }

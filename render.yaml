@@ -1,0 +1,29 @@
+# Documents the two EXISTING Render services. Names must keep matching the
+# services already provisioned so the public URLs stay unchanged:
+#   frontend -> https://devdynamics-frontend.onrender.com
+#   api      -> https://devdynamics-api.onrender.com
+
+services:
+  - type: web
+    name: devdynamics-api
+    runtime: docker
+    dockerfilePath: ./DevDynamics.API/Dockerfile
+    dockerContext: ./DevDynamics.API
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      # Set in the Render dashboard, never committed.
+      - key: GitHub__Token
+        sync: false
+
+  - type: web
+    name: devdynamics-frontend
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./devdynamics-frontend/dist/devdynamics-frontend/browser
+    rootDir: ./devdynamics-frontend
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
