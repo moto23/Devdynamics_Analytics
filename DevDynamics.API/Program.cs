@@ -126,7 +126,11 @@ app.MapGet("/db-info", async (AppDbContext db) =>
 
     try
     {
-        info["canConnect"] = await db.Database.CanConnectAsync();
+        // Cap the diagnostic so a blocked route reports in seconds rather than
+        // hanging for the full connection timeout multiplied by the retry count.
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        info["canConnect"] = await db.Database.CanConnectAsync(cts.Token);
         info["appliedMigrations"] = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
         info["pendingMigrations"] = (await db.Database.GetPendingMigrationsAsync()).ToArray();
         info["devActivityRows"] = await db.DevActivities.CountAsync();
@@ -140,6 +144,70 @@ app.MapGet("/db-info", async (AppDbContext db) =>
     }
 
     return Results.Ok(info);
+});
+
+// Network reachability diagnostic. Answers the two questions that a hanging
+// database connection cannot: what public IP does this service egress from
+// (that is the address the SQL firewall must allow), and can it open a TCP
+// socket to the database host at all. Fails fast rather than retrying, so a
+// blocked route is reported in seconds instead of minutes.
+app.MapGet("/net-info", async (AppDbContext db) =>
+{
+    var result = new Dictionary<string, object?>();
+
+    using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+    try
+    {
+        result["egressIp"] = (await http.GetStringAsync("https://api.ipify.org")).Trim();
+    }
+    catch (Exception ex)
+    {
+        result["egressIp"] = $"lookup failed: {ex.GetType().Name}";
+    }
+
+    // Parse host and port out of the configured data source, e.g.
+    // "tcp:server.database.windows.net,1433".
+    var dataSource = db.Database.GetDbConnection().DataSource ?? string.Empty;
+    var hostPart = dataSource.Replace("tcp:", string.Empty, StringComparison.OrdinalIgnoreCase);
+    var pieces = hostPart.Split(',');
+    var host = pieces[0];
+    var port = pieces.Length > 1 && int.TryParse(pieces[1], out var p) ? p : 1433;
+
+    result["sqlHost"] = host;
+    result["sqlPort"] = port;
+
+    var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+    try
+    {
+        using var tcp = new System.Net.Sockets.TcpClient();
+        var connectTask = tcp.ConnectAsync(host, port);
+        var completed = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(10)));
+
+        stopwatch.Stop();
+
+        if (completed == connectTask && tcp.Connected)
+        {
+            result["tcpReachable"] = true;
+            result["tcpNote"] = "TCP handshake succeeded; the SQL firewall permits this egress IP.";
+        }
+        else
+        {
+            result["tcpReachable"] = false;
+            result["tcpNote"] = "Timed out with no response. Typical of a firewall silently dropping packets: "
+                                + "add the egressIp above to the Azure SQL firewall.";
+        }
+
+        result["tcpElapsedMs"] = stopwatch.ElapsedMilliseconds;
+    }
+    catch (Exception ex)
+    {
+        stopwatch.Stop();
+        result["tcpReachable"] = false;
+        result["tcpError"] = ex.GetType().Name;
+        result["tcpElapsedMs"] = stopwatch.ElapsedMilliseconds;
+    }
+
+    return Results.Ok(result);
 });
 
 // Strips anything credential-shaped out of diagnostic text.
