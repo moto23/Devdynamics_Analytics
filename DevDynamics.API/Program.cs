@@ -110,14 +110,43 @@ app.MapGet("/health", () => Results.Ok(new
     timestamp = DateTime.UtcNow
 }));
 
-// Reports which database is actually serving traffic. Deliberately exposes no
-// credentials — host and database name only, parsed from the connection string.
-app.MapGet("/db-info", (AppDbContext db) => Results.Ok(new
+// Reports which database is actually serving traffic, and proves it by
+// opening a connection. Deliberately exposes no credentials: host and database
+// name only, and any error text is scrubbed of user id / password.
+app.MapGet("/db-info", async (AppDbContext db) =>
 {
-    provider = providerKind.ToString(),
-    dataSource = db.Database.GetDbConnection().DataSource,
-    database = db.Database.GetDbConnection().Database
-}));
+    var connection = db.Database.GetDbConnection();
+
+    var info = new Dictionary<string, object?>
+    {
+        ["provider"] = providerKind.ToString(),
+        ["dataSource"] = connection.DataSource,
+        ["database"] = connection.Database
+    };
+
+    try
+    {
+        info["canConnect"] = await db.Database.CanConnectAsync();
+        info["appliedMigrations"] = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
+        info["pendingMigrations"] = (await db.Database.GetPendingMigrationsAsync()).ToArray();
+        info["devActivityRows"] = await db.DevActivities.CountAsync();
+    }
+    catch (Exception ex)
+    {
+        info["canConnect"] = false;
+        info["errorType"] = ex.GetType().Name;
+        info["error"] = Scrub(ex.Message);
+        info["innerError"] = ex.InnerException is null ? null : Scrub(ex.InnerException.Message);
+    }
+
+    return Results.Ok(info);
+});
+
+// Strips anything credential-shaped out of diagnostic text.
+static string Scrub(string message) => System.Text.RegularExpressions.Regex.Replace(
+    message,
+    @"(?i)(password|pwd|user\s*id|uid)\s*=\s*[^;]*",
+    "$1=***");
 
 // Before/after query benchmark. Read-only: it runs SELECTs only.
 app.MapGet("/benchmark", async (AppDbContext db, int? iterations) =>
