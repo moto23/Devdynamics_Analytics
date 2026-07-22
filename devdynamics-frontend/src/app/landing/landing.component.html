@@ -28,6 +28,8 @@
     </div>
   </header>
 
+  <main id="content">
+
   <!-- Hero -->
   <section class="hero">
     <span class="chip chip-accent hero-eyebrow">
@@ -58,6 +60,14 @@
       Hosted on free-tier infrastructure — the API may take a moment to wake on
       first load.
     </p>
+
+    <!-- Real totals from the live API; absent entirely if it cannot be reached. -->
+    <dl class="live-stats" *ngIf="stats() as figures">
+      <div *ngFor="let stat of figures">
+        <dt>{{ stat.label }}</dt>
+        <dd>{{ stat.value }}</dd>
+      </div>
+    </dl>
   </section>
 
   <!-- Capabilities -->
@@ -128,6 +138,8 @@
       <app-icon name="chevron-right" [size]="16"></app-icon>
     </a>
   </section>
+
+  </main>
 
   <footer class="footer">
     <span class="muted">DevDynamics — GitHub Analytics Platform</span>

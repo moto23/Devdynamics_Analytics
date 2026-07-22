@@ -113,7 +113,8 @@
 
   --text-primary:    #0b1410;
   --text-secondary:  #4a5551;
-  --text-muted:      #78827e;
+  /* Measured 3.68:1 on --page at #78827e — below AA for body text. */
+  --text-muted:      #666f6b;
   --text-inverse:    #ffffff;
 
   --border:          rgba(11, 20, 16, 0.10);
@@ -121,11 +122,13 @@
   --gridline:        #e3e9e6;
   --axis:            #c2cbc7;
 
-  /* Stepped darker than the series mint so it clears text contrast on white. */
-  --accent:          #12855e;
-  --accent-hover:    #0f7150;
-  --accent-subtle:   rgba(18, 133, 94, 0.10);
-  --accent-ring:     rgba(18, 133, 94, 0.34);
+  /* Stepped darker than the series mint so it clears text contrast on white.
+     #12855e measured 4.29:1 on --page, short of AA where the accent is used as
+     ink (active nav labels, inline links, chips) rather than as a fill. */
+  --accent:          #0f7150;
+  --accent-hover:    #0b6144;
+  --accent-subtle:   rgba(15, 113, 80, 0.10);
+  --accent-ring:     rgba(15, 113, 80, 0.34);
   --accent-ink:      #ffffff;
 
   --series-1: #1baf7a;
@@ -157,11 +160,11 @@
     --glass-border: rgba(11,20,16,0.10);
     --glass-highlight: rgba(255,255,255,0.60);
     --text-primary: #0b1410; --text-secondary: #4a5551;
-    --text-muted: #78827e;   --text-inverse: #ffffff;
+    --text-muted: #666f6b;   --text-inverse: #ffffff;
     --border: rgba(11,20,16,0.10);
     --border-strong: rgba(11,20,16,0.18);
     --gridline: #e3e9e6;     --axis: #c2cbc7;
-    --accent: #12855e;       --accent-hover: #0f7150;
+    --accent: #0f7150;       --accent-hover: #0b6144;
     --accent-subtle: rgba(18,133,94,0.10);
     --accent-ring: rgba(18,133,94,0.34);
     --accent-ink: #ffffff;
@@ -331,6 +334,21 @@ a:hover { color: var(--accent-hover); }
   text-transform: uppercase;
   color: var(--text-muted);
 }
+
+/* Checkbox row. Shared because three pages render the same control; the label
+   is the hit target, which is what keeps it above the 24px minimum. */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 28px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.toggle input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 
 .muted { color: var(--text-muted); }
 

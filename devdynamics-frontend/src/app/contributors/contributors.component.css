@@ -44,17 +44,6 @@
 
 .repo-filter { width: 260px; }
 
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: 13.5px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-}
-.toggle input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
 
 /* ---------- Table ---------- */
 .table-card { padding: var(--space-2) var(--space-2) var(--space-4); }

@@ -50,6 +50,13 @@ export const routes: Routes = [
         path: 'settings',
         loadComponent: () => import('./settings/settings.component').then(m => m.SettingsComponent),
         title: 'Settings — DevDynamics'
+      },
+      {
+        // Rendered inside the shell so navigation remains available. A silent
+        // redirect would hide the fact that the link was wrong.
+        path: 'not-found',
+        loadComponent: () => import('./shared/not-found.component').then(m => m.NotFoundComponent),
+        title: 'Page not found — DevDynamics'
       }
     ]
   },
@@ -57,5 +64,13 @@ export const routes: Routes = [
   // Kept so previously shared links keep working.
   { path: 'companies', redirectTo: 'repositories', pathMatch: 'full' },
 
-  { path: '**', redirectTo: '' }
+  {
+    path: '**',
+    loadComponent: () => import('./layout/shell.component').then(m => m.ShellComponent),
+    children: [{
+      path: '**',
+      loadComponent: () => import('./shared/not-found.component').then(m => m.NotFoundComponent),
+      title: 'Page not found — DevDynamics'
+    }]
+  }
 ];

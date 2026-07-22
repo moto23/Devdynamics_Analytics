@@ -70,6 +70,16 @@
   color: transparent;
 }
 
+/* Clipped-background text is invisible wherever the gradient is dropped, so
+   forced-colors mode gets plain system ink instead. */
+@media (forced-colors: active) {
+  .gradient-text { background: none; color: CanvasText; }
+}
+
+/* Standalone links are their own targets, unlike links inside a sentence, so
+   they carry the 24px minimum. */
+.footer a { min-height: 24px; }
+
 .hero-lede {
   max-width: 640px;
   margin: 0 auto var(--space-6);
@@ -89,6 +99,39 @@
 .btn-lg { height: 46px; padding: 0 var(--space-5); font-size: 15px; border-radius: var(--radius-md); }
 
 .hero-note { font-size: 13px; }
+
+.live-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-7) auto 0;
+  padding: var(--space-5);
+  max-width: 720px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  animation: fade-up var(--dur-slow) var(--ease) both;
+}
+.live-stats > div { min-width: 0; }
+.live-stats dt {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.live-stats dd {
+  margin: 0;
+  font-size: clamp(20px, 3vw, 26px);
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+@media (max-width: 560px) {
+  .live-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 /* ---------- Sections ---------- */
 .section { max-width: 1160px; margin: 0 auto; padding: var(--space-7) var(--space-5); }

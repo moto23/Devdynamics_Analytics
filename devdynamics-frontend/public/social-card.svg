@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="DevDynamics — GitHub Analytics Platform">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1210"/>
+      <stop offset="1" stop-color="#141b18"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22b482"/>
+      <stop offset="1" stop-color="#199e70"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="1050" cy="90" r="320" fill="#199e70" opacity="0.10"/>
+  <rect x="90" y="150" width="72" height="72" rx="18" fill="url(#mark)"/>
+  <path d="M108 200 L126 178 L140 190 L162 166" fill="none" stroke="#0d1210" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="90" y="300" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="66" font-weight="700" fill="#ffffff">DevDynamics</text>
+  <text x="90" y="360" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="32" fill="#b9c4bf">GitHub Analytics Platform</text>
+  <text x="90" y="440" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="26" fill="#8a938f">Commit trends · PR cycle time · Contributor insights</text>
+  <g stroke="#199e70" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M760 470 L830 400 L890 435 L960 350 L1030 385 L1100 300"/>
+  </g>
+</svg>

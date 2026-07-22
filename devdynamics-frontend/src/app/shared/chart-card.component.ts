@@ -23,7 +23,7 @@ export interface LegendEntry {
     <section class="card chart-card" [class.animate-in]="!loading">
       <header class="chart-head">
         <div class="chart-titles">
-          <h3>{{ title }}</h3>
+          <h2>{{ title }}</h2>
           <p class="chart-sub muted" *ngIf="subtitle">{{ subtitle }}</p>
         </div>
 
