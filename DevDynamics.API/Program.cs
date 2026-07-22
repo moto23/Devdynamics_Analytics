@@ -1,6 +1,9 @@
 using DevDynamics.API.Analytics;
 using DevDynamics.API.Data;
 using DevDynamics.API.GraphQL;
+using DevDynamics.API.SourceControl;
+using DevDynamics.API.SourceControl.GitHub;
+using DevDynamics.API.Sync;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -49,9 +52,31 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Resolvers need to know the provider to pick a translatable aggregation.
 builder.Services.AddSingleton(new DatabaseProviderInfo(providerKind));
 
+// =========================
+// Source control ingestion
+// =========================
+builder.Services.Configure<GitHubOptions>(
+    builder.Configuration.GetSection(GitHubOptions.SectionName));
+
+// One provider today. Registering another Git host is a single extra line here
+// plus its ISourceControlProvider implementation; nothing else changes.
+builder.Services.AddHttpClient<GitHubProvider>();
+builder.Services.AddScoped<ISourceControlProvider>(sp => sp.GetRequiredService<GitHubProvider>());
+builder.Services.AddScoped<ISourceControlProviderRegistry, SourceControlProviderRegistry>();
+
+builder.Services.AddScoped<RepositorySyncService>();
+builder.Services.AddScoped<RepositoryRegistryService>();
+
+builder.Services.AddSingleton<ISyncQueue, SyncQueue>();
+builder.Services.AddHostedService<SyncWorker>();
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IAdminAuthorizer, AdminAuthorizer>();
+
 builder.Services
     .AddGraphQLServer()
     .AddQueryType<Query>()
+    .AddMutationType<Mutation>()
     .ModifyRequestOptions(o =>
         o.IncludeExceptionDetails = builder.Environment.IsDevelopment());
 
@@ -242,6 +267,12 @@ using (var scope = app.Services.CreateScope())
     {
         if (providerKind == DatabaseProviderKind.SqlServer)
         {
+            // Azure SQL serverless auto-pauses when idle, and a resume can take
+            // longer than the DbContext retry budget. Waking it explicitly before
+            // migrating avoids starting up with no schema applied, which would
+            // otherwise leave every query failing until the next restart.
+            await WaitForDatabaseAsync(dbContext, logger);
+
             // Migrations are authored for SQL Server, which is the real target.
             dbContext.Database.Migrate();
         }
@@ -252,10 +283,17 @@ using (var scope = app.Services.CreateScope())
             dbContext.Database.EnsureCreated();
         }
 
-        if (builder.Configuration.GetValue("Seed:Enabled", true))
+        // Synthetic activity seeding is retired: analytics now read ingested
+        // source-control data. Kept behind a default-off flag only so the
+        // legacy query benchmark can still be reproduced on demand.
+        if (builder.Configuration.GetValue("Seed:Enabled", false))
         {
             DataSeeder.Seed(dbContext, builder.Configuration.GetValue("Seed:RowCount", 100));
         }
+
+        // Populates the repository registry only when it is completely empty.
+        // These are ordinary, removable rows.
+        RegistrySeeder.Seed(dbContext, builder.Configuration, logger);
 
         logger.LogInformation("Database ready.");
     }
@@ -272,3 +310,37 @@ using (var scope = app.Services.CreateScope())
 // =========================
 var port = Environment.GetEnvironmentVariable("PORT") ?? "5236";
 app.Run($"http://0.0.0.0:{port}");
+
+// Polls until the database accepts a connection. Azure SQL serverless reports
+// error 40613 ("not currently available") while resuming from auto-pause, which
+// can outlast the DbContext's own retry budget.
+static async Task WaitForDatabaseAsync(AppDbContext dbContext, ILogger logger)
+{
+    const int maxAttempts = 12;
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++)
+    {
+        try
+        {
+            if (await dbContext.Database.CanConnectAsync())
+            {
+                if (attempt > 1)
+                {
+                    logger.LogInformation("Database available after {Attempts} attempts.", attempt);
+                }
+
+                return;
+            }
+        }
+        catch (Exception ex) when (attempt < maxAttempts)
+        {
+            logger.LogInformation(
+                "Waiting for database to resume (attempt {Attempt}/{Max}): {Message}",
+                attempt, maxAttempts, ex.Message);
+        }
+
+        await Task.Delay(TimeSpan.FromSeconds(10));
+    }
+
+    logger.LogWarning("Database did not become available within the startup window.");
+}

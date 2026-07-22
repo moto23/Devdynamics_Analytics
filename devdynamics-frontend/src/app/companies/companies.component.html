@@ -1,36 +1,64 @@
 <div class="companies-container">
-    <h1>Companies</h1>
-  
-    <input
-      type="text"
-      placeholder="Search companies..."
-      [(ngModel)]="searchText"
-      class="search-input"
-    />
-  
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>Company</th>
-            <th>Commits</th>
-            <th>PRs</th>
-            <th>Contributors</th>
-          </tr>
-        </thead>
-  
-        <tbody>
-            <tr
-            *ngFor="let c of filteredCompanies"
+
+  <h1>Tracked Repositories</h1>
+
+  <input
+    type="text"
+    placeholder="Search by name or language…"
+    [(ngModel)]="searchText"
+    class="search-input"
+  />
+
+  <section *ngIf="loading"><p>Loading repositories…</p></section>
+  <section *ngIf="errorMessage"><p class="error-text">{{ errorMessage }}</p></section>
+
+  <section *ngIf="!loading && !errorMessage && repositories.length === 0">
+    <p>No repositories are tracked yet.</p>
+  </section>
+
+  <div class="table-wrapper" *ngIf="!loading && filtered.length > 0">
+    <table>
+      <thead>
+        <tr>
+          <th>Repository</th>
+          <th>Language</th>
+          <th>Commits</th>
+          <th>PRs</th>
+          <th>Contributors</th>
+          <th>Status</th>
+          <th>Last Synced</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr *ngFor="let r of filtered"
             class="clickable-row"
-            (click)="goToCompany(c.name)"
-          >
-            <td class="company-name">{{ c.name }}</td>
-            <td>{{ c.commits }}</td>
-            <td>{{ c.prs }}</td>
-            <td>{{ c.contributors }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+            [class.inactive-row]="!r.isActive"
+            (click)="viewAnalytics(r)">
+
+          <td class="company-name">
+            {{ r.fullName }}
+            <span class="badge" *ngIf="r.isDemoData">demo</span>
+            <span class="badge" *ngIf="!r.isActive">disabled</span>
+          </td>
+
+          <td>{{ r.language || '—' }}</td>
+          <td>{{ r.totalCommits }}</td>
+          <td>{{ r.totalPullRequests }}</td>
+          <td>{{ r.totalContributors }}</td>
+
+          <td>
+            <span [class]="statusClass(r.syncStatus)">{{ r.syncStatus }}</span>
+          </td>
+
+          <td>
+            {{ r.lastSyncCompletedAtUtc
+                ? (r.lastSyncCompletedAtUtc | date:'short')
+                : 'never' }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
+
+</div>

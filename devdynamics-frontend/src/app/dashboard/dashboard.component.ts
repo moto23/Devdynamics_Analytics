@@ -1,43 +1,23 @@
-import {
-  Component,
-  OnInit,
-  OnDestroy,
-  HostListener
-} from '@angular/core';
-
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgxChartsModule } from '@swimlane/ngx-charts';
-
-import {
-  forkJoin,
-  Subscription,
-  Subject,
-  debounceTime,
-  switchMap,
-  retry,
-  catchError,
-  of
-} from 'rxjs';
-
 import { ActivatedRoute } from '@angular/router';
 
 import {
-  DevActivity,
+  forkJoin, Subscription, Subject, debounceTime, switchMap, catchError, of
+} from 'rxjs';
+
+import {
   GraphqlService,
-  PRCycleTimeResult,
-  SummaryResult
+  AnalyticsFilters,
+  SummaryStats,
+  TrackedRepository,
+  ContributorSummary
 } from '../services/graphql.service';
 
-type ChartPoint = {
-  name: string;
-  value: number;
-};
-
-type ChartSeries = {
-  name: string;
-  series: ChartPoint[];
-};
+type ChartPoint = { name: string; value: number };
+type ChartSeries = { name: string; series: ChartPoint[] };
 
 @Component({
   selector: 'app-dashboard',
@@ -52,394 +32,235 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private filterSub!: Subscription;
   private filterSubject = new Subject<void>();
 
+  // Filters
   startDate = '';
   endDate = '';
   contributor = '';
-  dropdownOpen = false;
+  repository: string | null = null;
+  excludeBots = false;
 
-  selectedCompany: string | null = null;
+  contributorDropdownOpen = false;
+  repositoryDropdownOpen = false;
 
   loading = false;
   errorMessage = '';
   dateRangeMessage = '';
   hasNoData = false;
 
-  contributors: string[] = [];
+  /** Populated from the registry, so the filter follows whatever is tracked. */
+  repositories: TrackedRepository[] = [];
+  contributors: ContributorSummary[] = [];
 
-  summary: SummaryResult = {
-    totalCommits: 0,
-    totalPRs: 0,
-    totalMerges: 0,
-    totalMeetings: 0,
-    totalDocs: 0,
-    contributorCount: 0
-  };
+  summary: SummaryStats = this.emptySummary();
 
-  commitFrequencyData: ChartSeries[] = [];
-  activityBreakdownData: any[] = [];
-  activityShareData: any[] = [];
+  commitTrendData: ChartSeries[] = [];
   prCycleTimeData: ChartSeries[] = [];
+  contributorShareData: ChartPoint[] = [];
 
   constructor(
     private gql: GraphqlService,
     private route: ActivatedRoute
   ) {}
 
-  // =========================
-  // CLICK OUTSIDE DROPDOWN
-  // =========================
-
   @HostListener('document:click', ['$event'])
   onClickOutside(event: MouseEvent) {
-
     const target = event.target as HTMLElement;
-
     if (!target.closest('.custom-select')) {
-      this.dropdownOpen = false;
+      this.contributorDropdownOpen = false;
+      this.repositoryDropdownOpen = false;
     }
   }
 
-  // =========================
-  // INIT
-  // =========================
-
   ngOnInit() {
-
     this.routeSub = this.route.queryParams.subscribe(params => {
-
-      this.selectedCompany = params['company'] || null;
-
+      this.repository = params['repository'] || null;
       this.triggerFilter();
     });
 
     this.filterSub = this.filterSubject.pipe(
-
       debounceTime(400),
-
       switchMap(() => this.fetchData())
-
     ).subscribe();
   }
 
   ngOnDestroy() {
-
-    if (this.routeSub) {
-      this.routeSub.unsubscribe();
-    }
-
-    if (this.filterSub) {
-      this.filterSub.unsubscribe();
-    }
+    this.routeSub?.unsubscribe();
+    this.filterSub?.unsubscribe();
   }
 
-  /** Explicit user-triggered reload, replacing the old 5s polling interval. */
-  refresh() {
+  // =========================
+  // Filters
+  // =========================
+
+  onFiltersChanged() { this.triggerFilter(); }
+
+  refresh() { this.triggerFilter(); }
+
+  selectContributor(login: string) {
+    this.contributor = login;
+    this.contributorDropdownOpen = false;
     this.triggerFilter();
   }
 
-  // =========================
-  // FILTERS
-  // =========================
-
-  onFiltersChanged() {
+  selectRepository(fullName: string | null) {
+    this.repository = fullName;
+    this.repositoryDropdownOpen = false;
     this.triggerFilter();
   }
 
-  selectContributor(val: string) {
+  setQuickRange(days: number) {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - days);
 
-    this.contributor = val;
-
-    this.dropdownOpen = false;
+    this.endDate = end.toISOString().slice(0, 10);
+    this.startDate = start.toISOString().slice(0, 10);
 
     this.triggerFilter();
   }
 
-  private triggerFilter() {
-    this.filterSubject.next();
+  resetFilters() {
+    this.startDate = '';
+    this.endDate = '';
+    this.contributor = '';
+    this.repository = null;
+    this.excludeBots = false;
+    this.triggerFilter();
   }
 
+  get hasActiveFilters(): boolean {
+    return !!(this.startDate || this.endDate || this.contributor || this.repository || this.excludeBots);
+  }
+
+  private triggerFilter() { this.filterSubject.next(); }
+
   // =========================
-  // FETCH DATA
+  // Fetch
   // =========================
+
+  private buildFilters(): AnalyticsFilters {
+    return {
+      // The trailing Z is required: the GraphQL DateTime scalar rejects an
+      // ISO-8601 string with no timezone offset.
+      startDate: this.startDate ? `${this.startDate}T00:00:00.000Z` : null,
+      endDate: this.endDate ? `${this.endDate}T23:59:59.999Z` : null,
+      contributor: this.contributor || null,
+      repository: this.repository,
+      excludeBots: this.excludeBots
+    };
+  }
 
   private fetchData() {
-
-    // The trailing Z is required. The GraphQL DateTime scalar rejects an
-    // ISO-8601 string with no timezone offset, so sending "...T00:00:00" made
-    // every date-filtered query fail. Activity timestamps are stored in UTC,
-    // so the selected day is interpreted as UTC.
-    const start = this.startDate
-      ? `${this.startDate}T00:00:00.000Z`
-      : null;
-
-    const end = this.endDate
-      ? `${this.endDate}T23:59:59.999Z`
-      : null;
-
     this.loading = true;
-
     this.errorMessage = '';
     this.dateRangeMessage = '';
     this.hasNoData = false;
 
-    // DATE VALIDATION
-
-    if (!this.isDateRangeValid(start, end)) {
-
-      this.dateRangeMessage =
-        'Start date must be before or equal to end date';
-
+    if (!this.isDateRangeValid()) {
+      this.dateRangeMessage = 'Start date must be before or equal to end date';
       this.loading = false;
-
       this.resetData();
-
       return of(null);
     }
 
+    const filters = this.buildFilters();
+
     return forkJoin({
-
-      activities: this.gql.getDevActivities(
-        start,
-        end,
-        this.contributor || null,
-        this.selectedCompany
-      ),
-
-      summary: this.gql.getSummaryStats(
-        start,
-        end,
-        this.contributor || null,
-        this.selectedCompany
-      ),
-
-      pr: this.gql.getPRCycleTime(
-        start,
-        end,
-        this.selectedCompany
-      )
-
+      summary: this.gql.getSummaryStats(filters),
+      trends: this.gql.getCommitTrends(filters),
+      cycle: this.gql.getPrCycleTime(filters),
+      contributors: this.gql.getContributors(filters),
+      repositories: this.gql.getTrackedRepositories(false)
     }).pipe(
-
-      retry(2),
-
       catchError(err => {
-
         console.error('API ERROR:', err);
-
         this.errorMessage =
           'Unable to fetch dashboard data. The API may be waking up — try again in a moment.';
-
         this.loading = false;
-
-        // Clear charts and summary so a failed request never leaves stale
-        // numbers on screen looking like live data.
         this.resetData();
-
         return of(null);
       }),
-
       switchMap((res: any) => {
+        if (!res) return of(null);
 
-        if (!res) {
-          return of(null);
-        }
+        this.summary = res.summary || this.emptySummary();
+        this.repositories = res.repositories || [];
+        this.contributors = res.contributors || [];
 
-        const activities: DevActivity[] =
-          res.activities || [];
+        this.hasNoData = (this.summary.totalCommits || 0) === 0
+          && (this.summary.totalPullRequests || 0) === 0;
 
-        const summary: SummaryResult =
-          res.summary || this.summary;
-
-        const pr: PRCycleTimeResult[] =
-          res.pr || [];
-
-        this.summary = summary;
-
-        this.hasNoData =
-          !activities || activities.length === 0;
-
-        // CONTRIBUTORS
-
-        this.contributors = Array.from(
-          new Set(
-            activities
-              .map(a => a.contributor)
-              .filter(Boolean)
-          )
-        ).sort();
-
-        // BUILD CHARTS
-
-        this.buildCharts(activities, pr);
+        this.buildCharts(res.trends || [], res.cycle || []);
 
         this.loading = false;
-
         return of(null);
       })
     );
   }
 
-  // =========================
-  // HELPERS
-  // =========================
+  private isDateRangeValid(): boolean {
+    if (!this.startDate || !this.endDate) return true;
+    return new Date(this.startDate) <= new Date(this.endDate);
+  }
 
-  /** Clears every rendered figure. Used on error and on an invalid date range. */
-  private resetData() {
-
-    this.summary = {
+  private emptySummary(): SummaryStats {
+    return {
       totalCommits: 0,
-      totalPRs: 0,
-      totalMerges: 0,
-      totalMeetings: 0,
-      totalDocs: 0,
-      contributorCount: 0
+      totalPullRequests: 0,
+      mergedPullRequests: 0,
+      openPullRequests: 0,
+      contributorCount: 0,
+      repositoryCount: 0,
+      avgPrCycleHours: 0
     };
+  }
 
-    this.commitFrequencyData = [];
-    this.activityBreakdownData = [];
-    this.activityShareData = [];
+  private resetData() {
+    this.summary = this.emptySummary();
+    this.commitTrendData = [];
     this.prCycleTimeData = [];
-  }
-
-  private isDateRangeValid(
-    start: string | null,
-    end: string | null
-  ): boolean {
-
-    if (!start || !end) {
-      return true;
-    }
-
-    return new Date(start) <= new Date(end);
+    this.contributorShareData = [];
+    this.contributors = [];
   }
 
   // =========================
-  // BUILD CHARTS
+  // Charts
   // =========================
 
-  buildCharts(
-    data: DevActivity[],
-    pr: PRCycleTimeResult[]
-  ) {
+  private buildCharts(trends: any[], cycle: any[]) {
+    this.commitTrendData = [{
+      name: 'Commits',
+      series: trends.map(t => ({
+        name: (t.date || '').split('T')[0],
+        value: Number(t.commits || 0)
+      }))
+    }];
 
-    // EMPTY
-
-    if (!data || data.length === 0) {
-
-      this.commitFrequencyData = [];
-      this.activityBreakdownData = [];
-      this.activityShareData = [];
-      this.prCycleTimeData = [];
-
-      return;
-    }
-
-    const grouped: Record<string, any> = {};
-
-    // GROUP DATA
-
-    data.forEach(a => {
-
-      if (!a.time) return;
-
-      const date = a.time.split('T')[0];
-
-      if (!grouped[date]) {
-
-        grouped[date] = {
-          commits: 0,
-          prs: 0,
-          merges: 0,
-          meetings: 0,
-          docs: 0
-        };
-      }
-
-      grouped[date].commits += Number(a.commits || 0);
-      grouped[date].prs += Number(a.pullRequests || 0);
-      grouped[date].merges += Number(a.merges || 0);
-      grouped[date].meetings += Number(a.meetings || 0);
-      grouped[date].docs += Number(a.documentation || 0);
-    });
-
-    const dates = Object.keys(grouped).sort();
-
-    // =========================
-    // COMMITS LINE CHART
-    // =========================
-
-    this.commitFrequencyData = [
-      {
-        name: 'Commits',
-        series: dates.map(d => ({
-          name: d,
-          value: Number(grouped[d].commits || 0)
+    this.prCycleTimeData = [{
+      name: 'Avg hours to merge',
+      series: cycle
+        .filter(c => c && c.date && !isNaN(Number(c.avgHours)))
+        .map(c => ({
+          name: (c.date || '').split('T')[0],
+          value: Math.round(Number(c.avgHours) * 10) / 10
         }))
-      }
-    ];
+    }];
 
-    // =========================
-    // BAR CHART
-    // =========================
+    // Top contributors by commits; the rest are grouped so the chart stays
+    // readable however many contributors the tracked repositories have.
+    const top = this.contributors.slice(0, 8);
+    const rest = this.contributors.slice(8);
 
-    this.activityBreakdownData = dates.map(d => ({
-      name: d,
-      series: [
-        {
-          name: 'Commits',
-          value: Number(grouped[d].commits || 0)
-        },
-        {
-          name: 'PRs',
-          value: Number(grouped[d].prs || 0)
-        },
-        {
-          name: 'Merges',
-          value: Number(grouped[d].merges || 0)
-        }
-      ]
+    this.contributorShareData = top.map(c => ({
+      name: c.login,
+      value: c.commits
     }));
 
-    // =========================
-    // PIE CHART
-    // =========================
-
-    this.activityShareData = [
-      {
-        name: 'Commits',
-        value: Number(this.summary.totalCommits || 0)
-      },
-      {
-        name: 'PRs',
-        value: Number(this.summary.totalPRs || 0)
-      },
-      {
-        name: 'Merges',
-        value: Number(this.summary.totalMerges || 0)
-      }
-    ];
-
-    // =========================
-    // PR CYCLE TIME CHART
-    // =========================
-
-    this.prCycleTimeData = [
-      {
-        name: 'PR Cycle Time',
-        series: (pr || [])
-          .filter(x =>
-            x &&
-            x.date &&
-            x.avgHours !== null &&
-            x.avgHours !== undefined &&
-            !isNaN(Number(x.avgHours))
-          )
-          .map(x => ({
-            name: x.date.split('T')[0],
-            value: Number(x.avgHours)
-          }))
-      }
-    ];
-
+    if (rest.length > 0) {
+      this.contributorShareData.push({
+        name: `Other (${rest.length})`,
+        value: rest.reduce((sum, c) => sum + c.commits, 0)
+      });
+    }
   }
 }

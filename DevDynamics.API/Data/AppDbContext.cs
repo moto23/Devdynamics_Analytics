@@ -5,49 +5,76 @@ namespace DevDynamics.API.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public DbSet<DevActivity> DevActivities => Set<DevActivity>();
-
-    public DbSet<Repository> Repositories => Set<Repository>();
+    public DbSet<TrackedRepository> TrackedRepositories => Set<TrackedRepository>();
     public DbSet<Contributor> Contributors => Set<Contributor>();
     public DbSet<Commit> Commits => Set<Commit>();
     public DbSet<PullRequest> PullRequests => Set<PullRequest>();
+
+    /// <summary>
+    /// Legacy synthetic activity table. No longer written to or read from once
+    /// analytics move to ingested data; retained for one phase so the change is
+    /// reversible, then dropped.
+    /// </summary>
+    public DbSet<DevActivity> DevActivities => Set<DevActivity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // Indexes match the analytics access patterns: every dashboard query
-        // filters by a date range and optionally by repository and/or contributor.
-
-        modelBuilder.Entity<Repository>(entity =>
+        modelBuilder.Entity<TrackedRepository>(entity =>
         {
-            entity.HasIndex(x => x.FullName).IsUnique();
-            entity.HasIndex(x => x.GitHubId).IsUnique();
-            entity.Property(x => x.FullName).HasMaxLength(255).IsRequired();
+            entity.ToTable("TrackedRepositories");
+
+            // Identity is (provider, external id): the same owner/name can exist
+            // on more than one provider, and ids are only unique within one.
+            entity.HasIndex(x => new { x.Provider, x.ExternalId }).IsUnique();
+            entity.HasIndex(x => new { x.Provider, x.FullName }).IsUnique();
+
+            // The sync worker's primary lookup.
+            entity.HasIndex(x => new { x.IsActive, x.SyncStatus });
+
+            entity.Property(x => x.Provider).HasMaxLength(30).IsRequired();
+            entity.Property(x => x.ExternalId).HasMaxLength(100).IsRequired();
             entity.Property(x => x.Owner).HasMaxLength(100).IsRequired();
             entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.FullName).HasMaxLength(255).IsRequired();
             entity.Property(x => x.Language).HasMaxLength(50);
+            entity.Property(x => x.HtmlUrl).HasMaxLength(500);
+            entity.Property(x => x.DefaultBranch).HasMaxLength(100);
+            entity.Property(x => x.SyncStatus).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.LastSyncError).HasMaxLength(1000);
+            entity.Property(x => x.AddedBy).HasMaxLength(100);
+            entity.Property(x => x.CommitsSyncToken).HasMaxLength(200);
+            entity.Property(x => x.PullsSyncToken).HasMaxLength(200);
         });
 
         modelBuilder.Entity<Contributor>(entity =>
         {
-            entity.HasIndex(x => x.Login).IsUnique();
-            entity.HasIndex(x => x.GitHubId).IsUnique();
+            entity.HasIndex(x => new { x.Provider, x.ExternalId }).IsUnique();
+            entity.HasIndex(x => x.Login);
+
+            entity.Property(x => x.Provider).HasMaxLength(30).IsRequired();
+            entity.Property(x => x.ExternalId).HasMaxLength(100).IsRequired();
             entity.Property(x => x.Login).HasMaxLength(100).IsRequired();
             entity.Property(x => x.Name).HasMaxLength(150);
+            entity.Property(x => x.AvatarUrl).HasMaxLength(500);
+            entity.Property(x => x.HtmlUrl).HasMaxLength(500);
         });
 
         modelBuilder.Entity<Commit>(entity =>
         {
-            entity.HasIndex(x => x.Sha).IsUnique();
+            // Idempotent ingestion: re-syncing an overlapping window cannot
+            // duplicate a commit. Scoped per repository because a fork shares
+            // SHAs with its upstream.
+            entity.HasIndex(x => new { x.RepositoryId, x.Sha }).IsUnique();
 
-            // Commit trends: filter by repo, bucket by date.
+            // Commit trends: filter by repository, bucket by day.
             entity.HasIndex(x => new { x.RepositoryId, x.CommittedAt });
 
-            // Contributor comparison over a date range.
+            // Contributor comparison across a date range.
             entity.HasIndex(x => new { x.ContributorId, x.CommittedAt });
 
-            entity.Property(x => x.Sha).HasMaxLength(40).IsRequired();
+            entity.Property(x => x.Sha).HasMaxLength(64).IsRequired();
             entity.Property(x => x.AuthorName).HasMaxLength(150).IsRequired();
             entity.Property(x => x.AuthorEmail).HasMaxLength(255);
             entity.Property(x => x.Message).HasMaxLength(1000);
@@ -65,15 +92,20 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<PullRequest>(entity =>
         {
-            entity.HasIndex(x => x.GitHubId).IsUnique();
+            // Re-syncing a PR updates it in place rather than inserting again.
             entity.HasIndex(x => new { x.RepositoryId, x.Number }).IsUnique();
 
             // PR cycle time is bucketed by merge date.
             entity.HasIndex(x => new { x.RepositoryId, x.MergedAt });
             entity.HasIndex(x => new { x.ContributorId, x.CreatedAt });
 
+            // Incremental PR sync walks this ordering.
+            entity.HasIndex(x => new { x.RepositoryId, x.UpdatedAt });
+
+            entity.Property(x => x.ExternalId).HasMaxLength(100).IsRequired();
             entity.Property(x => x.Title).HasMaxLength(500).IsRequired();
             entity.Property(x => x.State).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.AuthorLogin).HasMaxLength(100);
 
             entity.HasOne(x => x.Repository)
                 .WithMany(r => r.PullRequests)
@@ -86,8 +118,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
-        // Legacy synthetic table. Indexed so the existing resolvers stay usable
-        // until GitHub-backed analytics replace them in a later phase.
         modelBuilder.Entity<DevActivity>(entity =>
         {
             entity.HasIndex(x => x.Time);

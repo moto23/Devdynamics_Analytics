@@ -1,15 +1,19 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { catchError, of } from 'rxjs';
 
-interface Company {
-  name: string;
-  commits: number;
-  prs: number;
-  contributors: number;
-}
+import { GraphqlService, TrackedRepository } from '../services/graphql.service';
 
+/**
+ * Tracked repositories and their sync state.
+ *
+ * Reads the registry, so it shows whatever is currently tracked — one
+ * repository or a hundred — with no code change. This is the page the
+ * repository-management UI (add / remove / enable / disable / resync) will
+ * build on.
+ */
 @Component({
   selector: 'app-companies',
   standalone: true,
@@ -17,28 +21,64 @@ interface Company {
   templateUrl: './companies.component.html',
   styleUrls: ['./companies.component.css']
 })
-export class CompaniesComponent {
+export class CompaniesComponent implements OnInit {
+
   searchText = '';
+  loading = false;
+  errorMessage = '';
 
-  constructor(private router: Router) {}
+  repositories: TrackedRepository[] = [];
 
-  companies: Company[] = [
-    { name: 'Google', commits: 120, prs: 45, contributors: 5 },
-    { name: 'Microsoft', commits: 95, prs: 30, contributors: 4 },
-    { name: 'Amazon', commits: 150, prs: 60, contributors: 6 },
-    { name: 'Netflix', commits: 80, prs: 22, contributors: 3 }
-  ];
+  constructor(
+    private gql: GraphqlService,
+    private router: Router
+  ) {}
 
-  get filteredCompanies() {
-    return this.companies.filter(c =>
-      c.name.toLowerCase().includes(this.searchText.toLowerCase())
+  ngOnInit() {
+    this.load();
+  }
+
+  load() {
+    this.loading = true;
+    this.errorMessage = '';
+
+    this.gql.getTrackedRepositories(true)
+      .pipe(catchError(err => {
+        console.error('API ERROR:', err);
+        this.errorMessage = 'Unable to load repositories. The API may be waking up.';
+        this.loading = false;
+        return of([] as TrackedRepository[]);
+      }))
+      .subscribe(repos => {
+        this.repositories = repos;
+        this.loading = false;
+      });
+  }
+
+  get filtered(): TrackedRepository[] {
+    const term = this.searchText.trim().toLowerCase();
+
+    if (!term) return this.repositories;
+
+    return this.repositories.filter(r =>
+      r.fullName.toLowerCase().includes(term) ||
+      (r.language || '').toLowerCase().includes(term)
     );
   }
 
-  // 🔥 THIS IS THE FIX
-  goToCompany(name: string) {
-    this.router.navigate(['/'], {
-      queryParams: { company: name }
-    });
+  /** Opens the dashboard scoped to a single repository. */
+  viewAnalytics(repo: TrackedRepository) {
+    this.router.navigate(['/'], { queryParams: { repository: repo.fullName } });
+  }
+
+  statusClass(status: string): string {
+    switch (status) {
+      case 'Succeeded': return 'status-ok';
+      case 'PartiallySynced': return 'status-warn';
+      case 'Failed': return 'status-error';
+      case 'Syncing':
+      case 'Queued': return 'status-busy';
+      default: return 'status-idle';
+    }
   }
 }
