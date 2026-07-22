@@ -384,3 +384,138 @@ a:hover { color: var(--accent-hover); }
 
 /* Wide content scrolls inside its own container; the page body never does. */
 .scroll-x { overflow-x: auto; overscroll-behavior-x: contain; }
+
+/* =========================================================================
+   Table system
+   =========================================================================
+   Shared so every table reads identically. Wide tables scroll inside their
+   own container — the page body never scrolls horizontally.
+   ========================================================================= */
+.table-wrap {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border-radius: var(--radius-md);
+}
+
+table.data {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13.5px;
+}
+
+table.data thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+table.data tbody td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+table.data tbody tr:last-child td { border-bottom: 0; }
+
+table.data tbody tr {
+  transition: background var(--dur-fast) var(--ease);
+}
+table.data tbody tr:hover { background: var(--surface-2); }
+
+table.data tbody tr.clickable { cursor: pointer; }
+
+/* Keyboard users must see the same affordance as a hover. */
+table.data tbody tr.clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+table.data td.numeric,
+table.data th.numeric { text-align: right; font-variant-numeric: tabular-nums; }
+
+table.data td.primary { color: var(--text-primary); font-weight: 550; }
+
+table.data tr.dimmed td { opacity: 0.55; }
+
+/* Row actions stay out of the way until the row is hovered or focused. */
+table.data .row-actions { opacity: 0; transition: opacity var(--dur-fast) var(--ease); }
+table.data tr:hover .row-actions,
+table.data tr:focus-within .row-actions { opacity: 1; }
+
+@media (hover: none) {
+  table.data .row-actions { opacity: 1; }
+}
+
+/* =========================================================================
+   Menu (contextual ⋮ actions)
+   ========================================================================= */
+.menu-panel {
+  position: fixed;
+  z-index: 70;
+  min-width: 196px;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
+  animation: menu-pop var(--dur-fast) var(--ease) both;
+}
+@keyframes menu-pop {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 8px var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.menu-item:hover { background: var(--surface-3); color: var(--text-primary); }
+.menu-item:disabled { opacity: 0.45; cursor: not-allowed; }
+.menu-item.danger { color: var(--status-critical); }
+.menu-item.danger:hover { background: color-mix(in srgb, var(--status-critical) 12%, transparent); }
+
+.menu-separator { height: 1px; margin: var(--space-2) 0; background: var(--border); }
+
+/* =========================================================================
+   Forms
+   ========================================================================= */
+.form-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--space-4); }
+.form-field:last-child { margin-bottom: 0; }
+.form-hint { font-size: 12.5px; color: var(--text-muted); }
+.form-error { font-size: 12.5px; color: var(--status-critical); }
+
+textarea.input { height: auto; min-height: 82px; padding: var(--space-3); resize: vertical; line-height: 1.5; }
+
+/* Visually hidden but available to screen readers. */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

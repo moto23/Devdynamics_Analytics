@@ -28,7 +28,10 @@ export interface SummaryStats {
   openPullRequests: number;
   contributorCount: number;
   repositoryCount: number;
+  /** Mean is retained as supporting detail; median is the honest headline. */
   avgPrCycleHours: number;
+  medianPrCycleHours: number;
+  p95PrCycleHours: number;
 }
 
 export interface CommitTrendPoint {
@@ -44,9 +47,27 @@ export interface PrCyclePoint {
 
 export interface ContributorSummary {
   login: string;
+  name: string | null;
   avatarUrl: string | null;
+  htmlUrl: string | null;
   isBot: boolean;
   commits: number;
+  pullRequestsOpened: number;
+  pullRequestsMerged: number;
+  repositoryCount: number;
+  score: number;
+}
+
+export interface PageInfo {
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  endCursor: string | null;
+  totalCount: number | null;
+}
+
+export interface Connection<T> {
+  items: T[];
+  pageInfo: PageInfo;
 }
 
 /**
@@ -72,7 +93,13 @@ export interface AnalyticsFilters {
 /** Returned when a response carries no summary, so callers never dereference undefined. */
 const EMPTY_SUMMARY: SummaryStats = {
   totalCommits: 0, totalPullRequests: 0, mergedPullRequests: 0, openPullRequests: 0,
-  contributorCount: 0, repositoryCount: 0, avgPrCycleHours: 0
+  contributorCount: 0, repositoryCount: 0,
+  avgPrCycleHours: 0, medianPrCycleHours: 0, p95PrCycleHours: 0
+};
+
+const EMPTY_CONNECTION: Connection<any> = {
+  items: [],
+  pageInfo: { hasNextPage: false, hasPreviousPage: false, endCursor: null, totalCount: 0 }
 };
 
 @Injectable()
@@ -112,7 +139,8 @@ export class GraphqlService {
         query ($startDate: DateTime, $endDate: DateTime, $contributor: String, $repository: String, $excludeBots: Boolean!) {
           summaryStats(startDate: $startDate, endDate: $endDate, contributor: $contributor, repository: $repository, excludeBots: $excludeBots) {
             totalCommits totalPullRequests mergedPullRequests openPullRequests
-            contributorCount repositoryCount avgPrCycleHours
+            contributorCount repositoryCount
+            avgPrCycleHours medianPrCycleHours p95PrCycleHours
           }
         }
       `,
@@ -146,12 +174,27 @@ export class GraphqlService {
     }).pipe(map(res => res.data?.prCycleTime ?? []));
   }
 
-  getContributors(f: AnalyticsFilters): Observable<ContributorSummary[]> {
+  /**
+   * Contributors are paginated server-side. Callers that only need a ranking
+   * (charts, filter menus) request a bounded page rather than the whole set.
+   */
+  getContributors(
+    f: AnalyticsFilters,
+    options: { first?: number; after?: string | null; search?: string | null; sortBy?: string } = {}
+  ): Observable<Connection<ContributorSummary>> {
     return this.apollo.query<any>({
       query: gql`
-        query ($startDate: DateTime, $endDate: DateTime, $repository: String, $excludeBots: Boolean!) {
-          contributors(startDate: $startDate, endDate: $endDate, repository: $repository, excludeBots: $excludeBots) {
-            login avatarUrl isBot commits
+        query ($startDate: DateTime, $endDate: DateTime, $repository: String, $excludeBots: Boolean!,
+               $first: Int, $after: String, $search: String, $sortBy: String) {
+          contributors(
+            startDate: $startDate, endDate: $endDate, repository: $repository, excludeBots: $excludeBots,
+            first: $first, after: $after, search: $search, sortBy: $sortBy
+          ) {
+            items {
+              login name avatarUrl htmlUrl isBot
+              commits pullRequestsOpened pullRequestsMerged repositoryCount score
+            }
+            pageInfo { hasNextPage hasPreviousPage endCursor totalCount }
           }
         }
       `,
@@ -159,8 +202,12 @@ export class GraphqlService {
         startDate: f.startDate,
         endDate: f.endDate,
         repository: f.repository,
-        excludeBots: f.excludeBots
+        excludeBots: f.excludeBots,
+        first: options.first ?? 50,
+        after: options.after ?? null,
+        search: options.search ?? null,
+        sortBy: options.sortBy ?? 'commits'
       }
-    }).pipe(map(res => res.data?.contributors ?? []));
+    }).pipe(map(res => res.data?.contributors ?? EMPTY_CONNECTION));
   }
 }

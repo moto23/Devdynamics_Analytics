@@ -30,10 +30,16 @@ export const routes: Routes = [
         title: 'Repositories — DevDynamics'
       },
       {
-        // Placeholder until 4E; routing to it must not 404 in the meantime.
+        // Replaced by the dedicated contributors page in 5C; routing to it must
+        // not 404 in the meantime.
         path: 'contributors',
         loadComponent: () => import('./repositories/repositories.component').then(m => m.RepositoriesComponent),
         title: 'Contributors — DevDynamics'
+      },
+      {
+        path: 'settings',
+        loadComponent: () => import('./settings/settings.component').then(m => m.SettingsComponent),
+        title: 'Settings — DevDynamics'
       }
     ]
   },

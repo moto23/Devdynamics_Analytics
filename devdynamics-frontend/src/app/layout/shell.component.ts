@@ -3,9 +3,11 @@ import { CommonModule } from '@angular/common';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
 import { IconComponent } from '../shared/icon.component';
+import { ToastHostComponent } from '../shared/toast-host.component';
 import { ThemeService } from '../core/theme.service';
 import { provideGraphQL } from '../core/apollo.providers';
 import { GraphqlService } from '../services/graphql.service';
+import { AdminService } from '../core/admin.service';
 
 interface NavItem {
   path: string;
@@ -22,10 +24,10 @@ interface NavItem {
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, IconComponent],
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, IconComponent, ToastHostComponent],
   // Provided here rather than at the root so Apollo ships in this lazy chunk,
   // keeping it out of the landing page's initial download.
-  providers: [provideGraphQL(), GraphqlService],
+  providers: [provideGraphQL(), GraphqlService, AdminService],
   templateUrl: './shell.component.html',
   styleUrls: ['./shell.component.css']
 })
@@ -44,7 +46,8 @@ export class ShellComponent {
   readonly navItems: NavItem[] = [
     { path: '/dashboard',    label: 'Overview',     icon: 'grid'  },
     { path: '/repositories', label: 'Repositories', icon: 'repo'  },
-    { path: '/contributors', label: 'Contributors', icon: 'users' }
+    { path: '/contributors', label: 'Contributors', icon: 'users' },
+    { path: '/settings',     label: 'Settings',     icon: 'settings' }
   ];
 
   toggleTheme() {

@@ -121,7 +121,7 @@
     <app-stat-tile label="Commits"      icon="commit" [value]="summary.totalCommits"        [loading]="loading"></app-stat-tile>
     <app-stat-tile label="Pull requests" icon="pr"    [value]="summary.totalPullRequests"   [loading]="loading" [note]="mergeRate"></app-stat-tile>
     <app-stat-tile label="Merged"       icon="check"  [value]="summary.mergedPullRequests"  [loading]="loading"></app-stat-tile>
-    <app-stat-tile label="Avg PR cycle" icon="clock"  [value]="summary.avgPrCycleHours" unit="h" [loading]="loading"></app-stat-tile>
+    <app-stat-tile label="PR cycle (median)" icon="clock" [value]="summary.medianPrCycleHours" unit="h" [loading]="loading" [note]="cycleNote"></app-stat-tile>
     <app-stat-tile label="Contributors" icon="users"  [value]="summary.contributorCount"    [loading]="loading"></app-stat-tile>
     <app-stat-tile label="Repositories" icon="repo"   [value]="summary.repositoryCount"     [loading]="loading"></app-stat-tile>
   </section>

@@ -222,7 +222,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         this.summary = res.summary ?? emptySummary();
         this.repositories = res.repositories ?? [];
-        this.contributors = res.contributors ?? [];
+        this.contributors = res.contributors?.items ?? [];
 
         this.buildCharts(res.trends ?? [], res.cycle ?? []);
         this.finish();
@@ -295,6 +295,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
       && this.summary.totalCommits === 0 && this.summary.totalPullRequests === 0;
   }
 
+  /** Median leads; the mean is shown as supporting detail because it is skewed. */
+  get cycleNote(): string {
+    if (!this.summary.medianPrCycleHours) return '';
+    return `mean ${this.summary.avgPrCycleHours}h · p95 ${this.summary.p95PrCycleHours}h`;
+  }
+
   get mergeRate(): string {
     if (!this.summary.totalPullRequests) return '—';
     return `${Math.round(this.summary.mergedPullRequests / this.summary.totalPullRequests * 100)}% merged`;
@@ -304,7 +310,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 function emptySummary(): SummaryStats {
   return {
     totalCommits: 0, totalPullRequests: 0, mergedPullRequests: 0, openPullRequests: 0,
-    contributorCount: 0, repositoryCount: 0, avgPrCycleHours: 0
+    contributorCount: 0, repositoryCount: 0,
+    avgPrCycleHours: 0, medianPrCycleHours: 0, p95PrCycleHours: 0
   };
 }
 

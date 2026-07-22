@@ -1,0 +1,150 @@
+<div class="page">
+
+  <header class="page-head">
+    <h1>Settings</h1>
+    <p class="page-sub muted">Appearance, administration and platform information.</p>
+  </header>
+
+  <!-- Appearance -->
+  <section class="card-glass panel" aria-labelledby="appearance-heading">
+    <div class="panel-head">
+      <span class="panel-icon"><app-icon name="sun" [size]="16"></app-icon></span>
+      <div>
+        <h2 id="appearance-heading">Appearance</h2>
+        <p class="muted panel-sub">Your choice is remembered on this device.</p>
+      </div>
+    </div>
+
+    <div class="theme-picker" role="radiogroup" aria-label="Colour theme">
+      <button
+        type="button"
+        class="theme-option"
+        role="radio"
+        [attr.aria-checked]="theme() === 'dark'"
+        [class.selected]="theme() === 'dark'"
+        (click)="setTheme('dark')">
+        <span class="swatch swatch-dark" aria-hidden="true"></span>
+        <span class="theme-label"><app-icon name="moon" [size]="14"></app-icon> Dark</span>
+      </button>
+
+      <button
+        type="button"
+        class="theme-option"
+        role="radio"
+        [attr.aria-checked]="theme() === 'light'"
+        [class.selected]="theme() === 'light'"
+        (click)="setTheme('light')">
+        <span class="swatch swatch-light" aria-hidden="true"></span>
+        <span class="theme-label"><app-icon name="sun" [size]="14"></app-icon> Light</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Administration -->
+  <section class="card-glass panel" aria-labelledby="admin-heading">
+    <div class="panel-head">
+      <span class="panel-icon"><app-icon name="settings" [size]="16"></app-icon></span>
+      <div>
+        <h2 id="admin-heading">Administration</h2>
+        <p class="muted panel-sub">
+          Required for adding, editing, syncing or removing repositories.
+        </p>
+      </div>
+      <app-status-badge
+        class="panel-badge"
+        [label]="admin.isAuthenticated() ? 'Unlocked' : 'Locked'"
+        [tone]="admin.isAuthenticated() ? 'good' : 'neutral'"
+        [icon]="admin.isAuthenticated() ? 'check' : 'alert'">
+      </app-status-badge>
+    </div>
+
+    <!-- Unlocked -->
+    <ng-container *ngIf="admin.isAuthenticated(); else lockedTpl">
+      <div class="admin-active">
+        <div class="key-row">
+          <span class="label">Active key</span>
+          <code class="key-mask">{{ admin.maskedKey() }}</code>
+        </div>
+        <p class="muted admin-note">
+          Held in this browser tab only, and cleared when the tab closes. It is never
+          written to persistent storage.
+        </p>
+        <button type="button" class="btn" (click)="lock()">Lock administration</button>
+      </div>
+    </ng-container>
+
+    <!-- Locked -->
+    <ng-template #lockedTpl>
+      <form class="admin-form" (ngSubmit)="unlock()">
+        <div class="form-field">
+          <label class="label" for="adminKey">Admin API key</label>
+          <input
+            id="adminKey"
+            class="input"
+            type="password"
+            name="adminKey"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Paste your admin key"
+            [(ngModel)]="keyInput"
+            [attr.aria-invalid]="!!error()"
+            [attr.aria-describedby]="error() ? 'adminKeyError' : 'adminKeyHint'" />
+
+          <p class="form-hint" id="adminKeyHint">
+            Set as <code>Admin__ApiKey</code> on the API service. Management actions stay
+            hidden until a valid key is provided.
+          </p>
+
+          <p class="form-error" id="adminKeyError" *ngIf="error()">{{ error() }}</p>
+        </div>
+
+        <button type="submit" class="btn btn-primary" [disabled]="verifying() || !keyInput.trim()">
+          {{ verifying() ? 'Verifying…' : 'Unlock' }}
+        </button>
+      </form>
+    </ng-template>
+  </section>
+
+  <!-- Scheduled sync -->
+  <section class="card-glass panel" aria-labelledby="sync-heading">
+    <div class="panel-head">
+      <span class="panel-icon"><app-icon name="refresh" [size]="16"></app-icon></span>
+      <div>
+        <h2 id="sync-heading">Scheduled sync</h2>
+        <p class="muted panel-sub">Automatic background refresh of tracked repositories.</p>
+      </div>
+    </div>
+
+    <p class="muted body-text">
+      Scheduling is configured on the server rather than per browser, so it applies to
+      everyone. Set <code>Schedule__Enabled</code> on the API service to turn it on;
+      the interval can be tuned globally, or per repository from its settings.
+    </p>
+  </section>
+
+  <!-- About -->
+  <section class="card-glass panel" aria-labelledby="about-heading">
+    <div class="panel-head">
+      <span class="panel-icon"><app-icon name="database" [size]="16"></app-icon></span>
+      <div>
+        <h2 id="about-heading">About</h2>
+        <p class="muted panel-sub">Platform and connection details.</p>
+      </div>
+    </div>
+
+    <dl class="about-grid">
+      <div><dt>Frontend</dt><dd>Angular 19 · Chart.js</dd></div>
+      <div><dt>API</dt><dd>ASP.NET Core 8 · HotChocolate GraphQL</dd></div>
+      <div><dt>Data</dt><dd>EF Core 8 · Azure SQL</dd></div>
+      <div><dt>Ingestion</dt><dd>GitHub REST API</dd></div>
+      <div class="wide"><dt>Endpoint</dt><dd><code>{{ apiUrl }}</code></dd></div>
+    </dl>
+
+    <a class="btn" href="https://github.com/moto23/Devdynamics_Analytics" target="_blank" rel="noopener noreferrer">
+      <app-icon name="github" [size]="15"></app-icon>
+      View source
+      <app-icon name="external" [size]="13"></app-icon>
+    </a>
+  </section>
+
+</div>

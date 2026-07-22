@@ -1,3 +1,5 @@
+<a class="skip-link" href="#main-content">Skip to content</a>
+
 <div class="shell" [class.collapsed]="collapsed()" [class.drawer-open]="drawerOpen()">
 
   <!-- Scrim closes the mobile drawer; hidden from assistive tech since the
@@ -71,6 +73,8 @@
     <main class="content" id="main-content">
       <router-outlet></router-outlet>
     </main>
+
+    <app-toast-host></app-toast-host>
   </div>
 
 </div>
