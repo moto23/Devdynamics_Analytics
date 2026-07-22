@@ -561,6 +561,15 @@ table.data tr:focus-within .row-actions { opacity: 1; }
 
 .menu-separator { height: 1px; margin: var(--space-2) 0; background: var(--border); flex: none; }
 
+.menu-caption {
+  padding: 6px var(--space-3) var(--space-2);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
 /* On narrow screens a panel anchored to a small trigger is hard to use, so it
    spans the viewport width instead. */
 @media (max-width: 480px) {

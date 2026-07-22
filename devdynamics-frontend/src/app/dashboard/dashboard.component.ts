@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -17,13 +17,16 @@ import { ChartCardComponent } from '../shared/chart-card.component';
 import { LineChartComponent, LineSeries } from '../charts/line-chart.component';
 import { BarChartComponent } from '../charts/bar-chart.component';
 import { ComboboxComponent, ComboOption } from '../shared/combobox.component';
+import { OverlayPortalDirective, positionPanel, trackViewportChanges } from '../shared/overlay';
+import { ExportService, exportFilename } from '../core/export.service';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [
     CommonModule, FormsModule, IconComponent,
-    StatTileComponent, ChartCardComponent, LineChartComponent, BarChartComponent, ComboboxComponent
+    StatTileComponent, ChartCardComponent, LineChartComponent, BarChartComponent, ComboboxComponent,
+    OverlayPortalDirective
   ],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
@@ -66,11 +69,172 @@ export class DashboardComponent implements OnInit, OnDestroy {
   contributorLabels: string[] = [];
   contributorCounts: number[] = [];
 
+  /** Raw series retained so an export writes the same numbers the charts show. */
+  commitTrendRows: { date: string; commits: number }[] = [];
+  cycleRows: { date: string; avgHours: number; mergedCount: number }[] = [];
+
+  /** Sparkline series, taken straight from the fetched data. */
+  commitSpark: number[] = [];
+  mergedSpark: number[] = [];
+
+  /**
+   * Change against the immediately preceding period of equal length.
+   *
+   * Only populated when a date range is set: without one the window is "all
+   * time", which has no previous period to compare against. Showing a delta
+   * there would be inventing a number.
+   */
+  commitsDelta: number | null = null;
+  prsDelta: number | null = null;
+
   constructor(
     private readonly gql: GraphqlService,
     private readonly route: ActivatedRoute,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly exporter: ExportService
   ) {}
+
+  // ---- Export menu (uses the shared overlay portal) ----
+
+  exportOpen = false;
+  exportTop = 0;
+  exportLeft = 0;
+
+  private exportTrigger: HTMLElement | null = null;
+  private exportPanel: HTMLElement | null = null;
+  private stopTrackingExport?: () => void;
+
+  toggleExport(event: MouseEvent) {
+    event.stopPropagation();
+
+    if (this.exportOpen) { this.closeExport(); return; }
+
+    this.exportTrigger = event.currentTarget as HTMLElement;
+    this.exportOpen = true;
+    this.stopTrackingExport = trackViewportChanges(() => this.positionExport());
+  }
+
+  onExportReady(element: HTMLElement) {
+    this.exportPanel = element;
+    this.positionExport();
+  }
+
+  private positionExport() {
+    if (!this.exportPanel || !this.exportTrigger) return;
+
+    const placement = positionPanel(this.exportTrigger.getBoundingClientRect(), this.exportPanel, {
+      alignEnd: true,
+      minWidth: 220
+    });
+
+    this.exportTop = placement.top;
+    this.exportLeft = placement.left;
+  }
+
+  closeExport() {
+    this.exportOpen = false;
+    this.exportPanel = null;
+    this.exportTrigger = null;
+    this.stopTrackingExport?.();
+    this.stopTrackingExport = undefined;
+  }
+
+  @HostListener('document:click')
+  onDocumentClick() { this.closeExport(); }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey() { this.closeExport(); }
+
+  /** Filters are encoded into every filename so an export is self-describing. */
+  private filename(base: string): string {
+    return exportFilename(base, [this.repository, this.contributor, this.startDate, this.endDate]);
+  }
+
+  private get filterSummary(): string {
+    const parts = [
+      this.repository ?? 'All repositories',
+      this.contributor ? `@${this.contributor}` : null,
+      this.startDate || this.endDate ? `${this.startDate || '…'} to ${this.endDate || '…'}` : 'All time',
+      this.excludeBots ? 'bots excluded' : null
+    ].filter(Boolean);
+
+    return parts.join(' · ');
+  }
+
+  private get surface(): string {
+    return getComputedStyle(document.documentElement).getPropertyValue('--page').trim() || '#0d1210';
+  }
+
+  exportCommitsCsv() {
+    this.closeExport();
+
+    this.exporter.exportCsv(
+      this.commitTrendRows,
+      [
+        { header: 'Date', value: r => r.date },
+        { header: 'Commits', value: r => r.commits }
+      ],
+      this.filename('commit-trends')
+    );
+  }
+
+  exportCycleCsv() {
+    this.closeExport();
+
+    this.exporter.exportCsv(
+      this.cycleRows,
+      [
+        { header: 'Merge date', value: r => r.date },
+        { header: 'Avg hours to merge', value: r => r.avgHours },
+        { header: 'Merged pull requests', value: r => r.mergedCount }
+      ],
+      this.filename('pr-cycle-time')
+    );
+  }
+
+  exportContributorsCsv() {
+    this.closeExport();
+
+    this.exporter.exportCsv(
+      this.contributors,
+      [
+        { header: 'Login', value: c => c.login },
+        { header: 'Name', value: c => c.name },
+        { header: 'Commits', value: c => c.commits },
+        { header: 'PRs opened', value: c => c.pullRequestsOpened },
+        { header: 'PRs merged', value: c => c.pullRequestsMerged },
+        { header: 'Repositories', value: c => c.repositoryCount },
+        { header: 'Score', value: c => c.score }
+      ],
+      this.filename('contributors')
+    );
+  }
+
+  exportChartPng() {
+    this.closeExport();
+
+    const canvas = document.querySelector<HTMLCanvasElement>('#dashboard-capture canvas');
+
+    if (!canvas) {
+      return;
+    }
+
+    this.exporter.exportChartPng(canvas, this.filename('commit-trends'), this.surface);
+  }
+
+  exportDashboardPng() {
+    this.closeExport();
+
+    const element = document.getElementById('dashboard-capture');
+    if (element) this.exporter.exportElementPng(element, this.filename('dashboard'), this.surface);
+  }
+
+  exportDashboardPdf() {
+    this.closeExport();
+
+    const element = document.getElementById('dashboard-capture');
+    if (element) this.exporter.exportElementPdf(element, this.filename('dashboard'), this.surface, this.filterSummary);
+  }
 
   ngOnInit() {
     // The fetch pipeline must be subscribed BEFORE the route subscription:
@@ -215,8 +379,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     const filters = this.buildFilters();
 
+    const previous = this.previousPeriod();
+
     return forkJoin({
       summary: this.gql.getSummaryStats(filters),
+      previous: previous
+        ? this.gql.getSummaryStats({ ...filters, startDate: previous.start, endDate: previous.end })
+            .pipe(catchError(() => of(null)))
+        : of(null),
       trends: this.gql.getCommitTrends(filters),
       cycle: this.gql.getPrCycleTime(filters),
       contributors: this.gql.getContributors(filters),
@@ -238,6 +408,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
         this.buildFilterOptions();
         this.buildCharts(res.trends ?? [], res.cycle ?? []);
+        this.buildDeltas(res.previous);
         this.finish();
 
         return of(null);
@@ -251,6 +422,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.slowLoad = false;
   }
 
+  /** The equal-length window immediately before the selected one. */
+  private previousPeriod(): { start: string; end: string } | null {
+    if (!this.startDate || !this.endDate) return null;
+
+    const start = new Date(`${this.startDate}T00:00:00.000Z`);
+    const end = new Date(`${this.endDate}T23:59:59.999Z`);
+    const span = end.getTime() - start.getTime();
+
+    if (!isFinite(span) || span <= 0) return null;
+
+    return {
+      start: new Date(start.getTime() - span - 1).toISOString(),
+      end: new Date(start.getTime() - 1).toISOString()
+    };
+  }
+
+  private buildDeltas(previous: SummaryStats | null) {
+    if (!previous) {
+      this.commitsDelta = null;
+      this.prsDelta = null;
+      return;
+    }
+
+    this.commitsDelta = percentChange(previous.totalCommits, this.summary.totalCommits);
+    this.prsDelta = percentChange(previous.totalPullRequests, this.summary.totalPullRequests);
+  }
+
   private isDateRangeValid(): boolean {
     if (!this.startDate || !this.endDate) return true;
     return new Date(this.startDate) <= new Date(this.endDate);
@@ -258,6 +456,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private resetData() {
     this.summary = emptySummary();
+    this.commitTrendRows = []; this.cycleRows = [];
+    this.commitSpark = []; this.mergedSpark = [];
+    this.commitsDelta = null; this.prsDelta = null;
     this.commitLabels = []; this.commitSeries = [];
     this.cycleLabels = [];  this.cycleSeries = [];
     this.mergedLabels = []; this.mergedCounts = [];
@@ -266,6 +467,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   private buildCharts(trends: any[], cycle: any[]) {
+    this.commitTrendRows = trends.map(t => ({
+      date: String(t.date).slice(0, 10),
+      commits: Number(t.commits ?? 0)
+    }));
+
+    this.commitSpark = this.commitTrendRows.map(r => r.commits);
+
     this.commitLabels = trends.map(t => shortDate(t.date));
     this.commitSeries = [{ label: 'Commits', data: trends.map(t => Number(t.commits ?? 0)), colorIndex: 0 }];
 
@@ -282,6 +490,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
     // one pair of axes would be a dual-axis chart, which misleads.
     this.mergedLabels = validCycle.map(c => shortDate(c.date));
     this.mergedCounts = validCycle.map(c => Number(c.mergedCount ?? 0));
+    this.mergedSpark = this.mergedCounts;
+
+    this.cycleRows = validCycle.map(c => ({
+      date: String(c.date).slice(0, 10),
+      avgHours: Math.round(Number(c.avgHours) * 10) / 10,
+      mergedCount: Number(c.mergedCount ?? 0)
+    }));
 
     // Top contributors, with the tail folded into "Other": the palette is
     // validated for six slots, and a generated seventh hue would not be safe.
@@ -326,6 +541,12 @@ function emptySummary(): SummaryStats {
     contributorCount: 0, repositoryCount: 0,
     avgPrCycleHours: 0, medianPrCycleHours: 0, p95PrCycleHours: 0
   };
+}
+
+/** Null when there is no baseline to compare against, rather than a fake 0%. */
+function percentChange(before: number, after: number): number | null {
+  if (!isFinite(before) || !isFinite(after) || before === 0) return null;
+  return ((after - before) / before) * 100;
 }
 
 function shortDate(iso: string): string {

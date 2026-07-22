@@ -10,10 +10,23 @@
       </p>
     </div>
 
-    <button type="button" class="btn" (click)="refresh()" [disabled]="loading">
-      <app-icon name="refresh" [size]="15"></app-icon>
-      Refresh
-    </button>
+    <div class="head-actions">
+      <button type="button" class="btn" (click)="refresh()" [disabled]="loading">
+        <app-icon name="refresh" [size]="15"></app-icon>
+        Refresh
+      </button>
+
+      <button
+        type="button"
+        class="btn btn-primary"
+        (click)="toggleExport($event)"
+        [attr.aria-expanded]="exportOpen"
+        aria-haspopup="menu">
+        <app-icon name="external" [size]="15"></app-icon>
+        Export
+        <app-icon name="chevron-down" [size]="14"></app-icon>
+      </button>
+    </div>
   </header>
 
   <!-- ── Filters ───────────────────────────────────────────────── -->
@@ -100,11 +113,20 @@
     Waking up the API — free-tier services sleep when idle. This usually takes under a minute.
   </div>
 
+  <!-- Wrapper marks the region captured by the image and PDF exports. -->
+  <div id="dashboard-capture" class="capture">
+
   <!-- ── KPIs ──────────────────────────────────────────────────── -->
   <section class="kpi-grid" aria-label="Key metrics">
-    <app-stat-tile label="Commits"      icon="commit" [value]="summary.totalCommits"        [loading]="loading"></app-stat-tile>
-    <app-stat-tile label="Pull requests" icon="pr"    [value]="summary.totalPullRequests"   [loading]="loading" [note]="mergeRate"></app-stat-tile>
-    <app-stat-tile label="Merged"       icon="check"  [value]="summary.mergedPullRequests"  [loading]="loading"></app-stat-tile>
+    <app-stat-tile label="Commits" icon="commit"
+                   [value]="summary.totalCommits" [loading]="loading"
+                   [series]="commitSpark" [deltaPercent]="commitsDelta"></app-stat-tile>
+    <app-stat-tile label="Pull requests" icon="pr"
+                   [value]="summary.totalPullRequests" [loading]="loading"
+                   [note]="mergeRate" [deltaPercent]="prsDelta"></app-stat-tile>
+    <app-stat-tile label="Merged" icon="check"
+                   [value]="summary.mergedPullRequests" [loading]="loading"
+                   [series]="mergedSpark"></app-stat-tile>
     <app-stat-tile label="PR cycle (median)" icon="clock" [value]="summary.medianPrCycleHours" unit="h" [loading]="loading" [note]="cycleNote"></app-stat-tile>
     <app-stat-tile label="Contributors" icon="users"  [value]="summary.contributorCount"    [loading]="loading"></app-stat-tile>
     <app-stat-tile label="Repositories" icon="repo"   [value]="summary.repositoryCount"     [loading]="loading"></app-stat-tile>
@@ -192,4 +214,42 @@
 
   </ng-container>
 
+  </div><!-- /#dashboard-capture -->
+
+</div>
+
+<!-- Export menu: shared overlay portal, so it can never be clipped. -->
+<div
+  class="menu-panel"
+  *ngIf="exportOpen"
+  appOverlayPortal
+  (ready)="onExportReady($event)"
+  role="menu"
+  [style.top.px]="exportTop"
+  [style.left.px]="exportLeft"
+  (click)="$event.stopPropagation()">
+
+  <p class="menu-caption">Respects the current filters</p>
+
+  <button type="button" class="menu-item" role="menuitem" (click)="exportDashboardPdf()">
+    <app-icon name="chart" [size]="15"></app-icon> Dashboard as PDF
+  </button>
+  <button type="button" class="menu-item" role="menuitem" (click)="exportDashboardPng()">
+    <app-icon name="grid" [size]="15"></app-icon> Dashboard as PNG
+  </button>
+  <button type="button" class="menu-item" role="menuitem" (click)="exportChartPng()">
+    <app-icon name="commit" [size]="15"></app-icon> Commit trends chart as PNG
+  </button>
+
+  <div class="menu-separator"></div>
+
+  <button type="button" class="menu-item" role="menuitem" (click)="exportCommitsCsv()">
+    <app-icon name="database" [size]="15"></app-icon> Commit trends as CSV
+  </button>
+  <button type="button" class="menu-item" role="menuitem" (click)="exportCycleCsv()">
+    <app-icon name="clock" [size]="15"></app-icon> PR cycle time as CSV
+  </button>
+  <button type="button" class="menu-item" role="menuitem" (click)="exportContributorsCsv()">
+    <app-icon name="users" [size]="15"></app-icon> Contributors as CSV
+  </button>
 </div>
