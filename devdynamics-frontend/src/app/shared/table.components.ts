@@ -35,7 +35,10 @@ import { IconComponent } from './icon.component';
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      padding: 0;
+      /* The label itself is only ~17px tall; the vertical padding is what
+         carries the button to the 24px minimum target size. */
+      padding: 4px 0;
+      min-height: 24px;
       border: 0;
       background: transparent;
       color: inherit;
