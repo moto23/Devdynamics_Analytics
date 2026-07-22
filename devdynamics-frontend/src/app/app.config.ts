@@ -1,29 +1,25 @@
-import { ApplicationConfig, inject, provideZoneChangeDetection } from '@angular/core';
+import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
-import { provideRouter } from '@angular/router';
-import { provideAnimations } from '@angular/platform-browser/animations'; // ✅ ADD THIS
-
-import { InMemoryCache } from '@apollo/client/core';
-import { provideApollo } from 'apollo-angular';
-import { HttpLink } from 'apollo-angular/http';
+import { provideRouter, withInMemoryScrolling } from '@angular/router';
+import { provideAnimations } from '@angular/platform-browser/animations';
 
 import { routes } from './app.routes';
-import { environment } from '../environments/environment';
 
+/**
+ * Root providers.
+ *
+ * Apollo is deliberately NOT here: it is provided on the shell route instead,
+ * so the ~270 kB GraphQL client is not shipped to visitors who only open the
+ * landing page. See app.routes.ts.
+ */
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideRouter(routes),
+    provideRouter(
+      routes,
+      withInMemoryScrolling({ scrollPositionRestoration: 'top', anchorScrolling: 'enabled' })
+    ),
     provideHttpClient(),
-    provideAnimations(), // ✅ THIS FIXES YOUR ERROR
-
-    provideApollo(() => {
-      const httpLink = inject(HttpLink);
-
-      return {
-        link: httpLink.create({ uri: environment.graphqlUri }),
-        cache: new InMemoryCache()
-      };
-    })
+    provideAnimations()
   ]
 };

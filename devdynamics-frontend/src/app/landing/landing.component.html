@@ -1,0 +1,139 @@
+<div class="landing">
+
+  <header class="topbar">
+    <a class="brand-mark" routerLink="/" aria-label="DevDynamics home">
+      <span class="brand-glyph"><app-icon name="chart" [size]="17"></app-icon></span>
+      <span class="brand-name">DevDynamics</span>
+    </a>
+
+    <div class="topbar-actions">
+      <a
+        class="btn btn-ghost btn-icon"
+        href="https://github.com/moto23/Devdynamics_Analytics"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="View source on GitHub">
+        <app-icon name="github" [size]="18"></app-icon>
+      </a>
+
+      <button
+        type="button"
+        class="btn btn-ghost btn-icon"
+        (click)="toggleTheme()"
+        [attr.aria-label]="theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
+        <app-icon [name]="theme() === 'dark' ? 'sun' : 'moon'" [size]="18"></app-icon>
+      </button>
+
+      <a class="btn btn-primary" routerLink="/dashboard">Open Dashboard</a>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <span class="chip chip-accent hero-eyebrow">
+      <app-icon name="github" [size]="14"></app-icon>
+      Real GitHub data · no synthetic metrics
+    </span>
+
+    <h1>
+      Developer analytics for<br />
+      <span class="gradient-text">any GitHub repository</span>
+    </h1>
+
+    <p class="hero-lede">
+      DevDynamics ingests commits, pull requests and contributors straight from the
+      GitHub REST API, then turns them into commit trends, PR cycle time and
+      contributor insights — across whichever repositories you choose to track.
+    </p>
+
+    <div class="hero-actions">
+      <a class="btn btn-primary btn-lg" routerLink="/dashboard">
+        Open Dashboard
+        <app-icon name="chevron-right" [size]="16"></app-icon>
+      </a>
+      <a class="btn btn-lg" routerLink="/repositories">Browse repositories</a>
+    </div>
+
+    <p class="hero-note muted">
+      Hosted on free-tier infrastructure — the API may take a moment to wake on
+      first load.
+    </p>
+  </section>
+
+  <!-- Capabilities -->
+  <section class="section" aria-labelledby="capabilities-heading">
+    <h2 id="capabilities-heading" class="section-title">What it does</h2>
+
+    <div class="capability-grid">
+      <article class="card-glass capability" *ngFor="let c of capabilities">
+        <span class="capability-icon"><app-icon [name]="c.icon" [size]="18"></app-icon></span>
+        <h3>{{ c.title }}</h3>
+        <p class="muted">{{ c.body }}</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- Stack -->
+  <section class="section" aria-labelledby="stack-heading">
+    <h2 id="stack-heading" class="section-title">Built with</h2>
+
+    <div class="stack-grid">
+      <div class="card-glass stack-group" *ngFor="let group of stack">
+        <span class="label">{{ group.label }}</span>
+        <ul class="stack-list">
+          <li *ngFor="let item of group.items">
+            <app-icon name="check" [size]="14"></app-icon>
+            {{ item }}
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="section" aria-labelledby="how-heading">
+    <h2 id="how-heading" class="section-title">How it works</h2>
+
+    <ol class="steps">
+      <li class="card-glass step">
+        <span class="step-index">1</span>
+        <div>
+          <h3>Track a repository</h3>
+          <p class="muted">Add any public repository by name. It is validated against GitHub before being stored.</p>
+        </div>
+      </li>
+      <li class="card-glass step">
+        <span class="step-index">2</span>
+        <div>
+          <h3>Sync in the background</h3>
+          <p class="muted">A worker ingests commits, pull requests and contributors incrementally, resuming safely after interruption.</p>
+        </div>
+      </li>
+      <li class="card-glass step">
+        <span class="step-index">3</span>
+        <div>
+          <h3>Read the analytics</h3>
+          <p class="muted">Every chart and metric follows the tracked set automatically — filter by repository, contributor or date.</p>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- Closing -->
+  <section class="cta card-glass">
+    <h2>Explore the dashboard</h2>
+    <p class="muted">Live analytics over real repositories, updated on demand.</p>
+    <a class="btn btn-primary btn-lg" routerLink="/dashboard">
+      Open Dashboard
+      <app-icon name="chevron-right" [size]="16"></app-icon>
+    </a>
+  </section>
+
+  <footer class="footer">
+    <span class="muted">DevDynamics — GitHub Analytics Platform</span>
+    <a href="https://github.com/moto23/Devdynamics_Analytics" target="_blank" rel="noopener noreferrer">
+      Source <app-icon name="external" [size]="13"></app-icon>
+    </a>
+  </footer>
+
+</div>

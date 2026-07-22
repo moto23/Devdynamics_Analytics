@@ -1,16 +1,45 @@
 import { Routes } from '@angular/router';
-import { DashboardComponent } from './dashboard/dashboard.component';
-import { SignupComponent } from './signup/signup.component';
-import { RepositoriesComponent } from './repositories/repositories.component';
 
+/**
+ * Routes are lazily loaded so the landing page — the first thing a visitor
+ * sees, and the one that must render while the API is still cold — does not
+ * ship the dashboard's code.
+ */
 export const routes: Routes = [
-  { path: '', component: DashboardComponent },
-  { path: 'dashboard', redirectTo: '', pathMatch: 'full' },
-  { path: 'repositories', component: RepositoriesComponent },
+  {
+    path: '',
+    loadComponent: () => import('./landing/landing.component').then(m => m.LandingComponent),
+    title: 'DevDynamics — GitHub Analytics Platform'
+  },
 
-  // Kept so previously shared /companies links keep working.
+  {
+    // Everything inside the product renders within the shell. Apollo is
+    // provided by ShellComponent itself so it lands in the lazy shell chunk
+    // rather than the initial bundle.
+    path: '',
+    loadComponent: () => import('./layout/shell.component').then(m => m.ShellComponent),
+    children: [
+      {
+        path: 'dashboard',
+        loadComponent: () => import('./dashboard/dashboard.component').then(m => m.DashboardComponent),
+        title: 'Overview — DevDynamics'
+      },
+      {
+        path: 'repositories',
+        loadComponent: () => import('./repositories/repositories.component').then(m => m.RepositoriesComponent),
+        title: 'Repositories — DevDynamics'
+      },
+      {
+        // Placeholder until 4E; routing to it must not 404 in the meantime.
+        path: 'contributors',
+        loadComponent: () => import('./repositories/repositories.component').then(m => m.RepositoriesComponent),
+        title: 'Contributors — DevDynamics'
+      }
+    ]
+  },
+
+  // Kept so previously shared links keep working.
   { path: 'companies', redirectTo: 'repositories', pathMatch: 'full' },
 
-  { path: 'signup', component: SignupComponent },
   { path: '**', redirectTo: '' }
 ];

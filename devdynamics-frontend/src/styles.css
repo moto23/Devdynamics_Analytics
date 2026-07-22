@@ -1,89 +1,386 @@
-/* 🌙 DARK MODE GLOBAL */
+/* =========================================================================
+   DevDynamics design system
+   =========================================================================
+   Dark mode first. Both modes are deliberately selected — the dark values are
+   their own steps, not an automatic inversion of the light ones.
 
-body.dark-mode {
-    background-color: #0f172a;
-    color: #e5e7eb;
-  }
-  
-  /* Navbar */
-  body.dark-mode .navbar {
-    background-color: #1e293b;
-    border-bottom: 1px solid #334155;
-  }
-  
-  /* Main containers */
-  body.dark-mode .dashboard-container,
-  body.dark-mode .summary-section,
-  body.dark-mode .chart-section,
-  body.dark-mode .status-box {
-    background-color: #1e293b;
-    color: #e5e7eb;
-    border-color: #334155;
-  }
-  
-  /* Headings */
-  body.dark-mode h1,
-  body.dark-mode h2,
-  body.dark-mode h3,
-  body.dark-mode th,
-  body.dark-mode td {
-    color: #e5e7eb;
-  }
-  
-  /* Inputs */
-  body.dark-mode input,
-  body.dark-mode select {
-    background-color: #020617;
-    color: #e5e7eb;
-    border: 1px solid #475569;
-  }
-  
-  /* Links */
-  body.dark-mode a {
-    color: #60a5fa;
-  }
-  
-  /* Footer */
-  body.dark-mode footer {
-    background-color: #1e293b;
-    color: #e5e7eb;
-    border-top: 1px solid #334155;
-  }
-  
-  /* Button */
-  body.dark-mode .theme-toggle {
-    background-color: #020617;
-    color: #e5e7eb;
-    border: 1px solid #475569;
-  }
+   The categorical series colours are validated, not chosen by eye, and the hue
+   ORDER is the colourblind-safety mechanism. Adjacent pairs clear ΔE 13.2
+   (CVD) and 19.3 (normal vision) on the dark surface, 16.3 / 19.6 on light.
+   Reordering or inserting a hue invalidates that — re-run the palette
+   validator before changing anything here.
+   ========================================================================= */
 
+:root {
+  color-scheme: dark;
 
-  /* 🔥 FORCE ngx-charts text to white in dark mode */
-body.dark-mode .ngx-charts text {
-    fill: #e5e7eb !important;
+  /* ---- Surfaces (dark is the default) ---------------------------------- */
+  --page:            #0d1210;
+  --surface-1:       #141b18;   /* card / chart surface — palette validated against this */
+  --surface-2:       #1a231f;   /* raised: popovers, hover rows */
+  --surface-3:       #212b27;
+
+  /* Glass is for chrome only: sidebar, header, dialogs. Never behind small
+     text, never over a chart plot area. */
+  --glass-bg:        rgba(26, 35, 31, 0.72);
+  --glass-border:    rgba(255, 255, 255, 0.10);
+  --glass-blur:      14px;
+  --glass-highlight: rgba(255, 255, 255, 0.06);
+
+  /* ---- Ink -------------------------------------------------------------- */
+  --text-primary:    #ffffff;
+  --text-secondary:  #b9c4bf;
+  --text-muted:      #8a938f;
+  --text-inverse:    #0d1210;
+
+  /* ---- Lines ------------------------------------------------------------ */
+  --border:          rgba(255, 255, 255, 0.10);
+  --border-strong:   rgba(255, 255, 255, 0.16);
+  --gridline:        #232d29;
+  --axis:            #38433e;
+
+  /* ---- Brand accent (mint) --------------------------------------------- */
+  --accent:          #199e70;
+  --accent-hover:    #22b482;
+  --accent-subtle:   rgba(25, 158, 112, 0.14);
+  --accent-ring:     rgba(25, 158, 112, 0.40);
+  --accent-ink:      #0d1210;   /* text on a filled accent surface */
+
+  /* ---- Categorical series (validated order — do not reorder) ----------- */
+  --series-1: #199e70;   /* mint    */
+  --series-2: #3987e5;   /* blue    */
+  --series-3: #d95926;   /* orange  */
+  --series-4: #9085e9;   /* violet  */
+  --series-5: #c98500;   /* yellow  */
+  --series-6: #d55181;   /* magenta */
+
+  /* ---- Heatmap: 4 activity buckets + a distinct empty cell -------------
+     "No activity" is an empty state, not a ramp step, so it is a surface
+     tint rather than the palest green. */
+  --heat-empty: #1b2320;
+  --heat-1:     #1a6b49;
+  --heat-2:     #23926a;
+  --heat-3:     #2cba88;
+  --heat-4:     #63e3af;
+
+  /* ---- Status (reserved; always paired with an icon + label) ----------- */
+  --status-good:     #0ca30c;
+  --status-warning:  #fab219;
+  --status-serious:  #ec835a;
+  --status-critical: #d03b3b;
+
+  /* ---- Elevation -------------------------------------------------------- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.34);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.44);
+
+  /* ---- Geometry --------------------------------------------------------- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 26px;
+
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
+
+  --sidebar-w:           248px;
+  --sidebar-w-collapsed:  72px;
+  --header-h:             64px;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  --ease: cubic-bezier(0.22, 0.8, 0.36, 1);
+  --dur-fast: 120ms;
+  --dur:      200ms;
+  --dur-slow: 380ms;
+}
+
+/* =========================================================================
+   Light mode — its own steps, validated against #ffffff
+   ========================================================================= */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --page:            #f4f7f5;
+  --surface-1:       #ffffff;
+  --surface-2:       #f8faf9;
+  --surface-3:       #eef2f0;
+
+  --glass-bg:        rgba(255, 255, 255, 0.74);
+  --glass-border:    rgba(11, 20, 16, 0.10);
+  --glass-highlight: rgba(255, 255, 255, 0.60);
+
+  --text-primary:    #0b1410;
+  --text-secondary:  #4a5551;
+  --text-muted:      #78827e;
+  --text-inverse:    #ffffff;
+
+  --border:          rgba(11, 20, 16, 0.10);
+  --border-strong:   rgba(11, 20, 16, 0.18);
+  --gridline:        #e3e9e6;
+  --axis:            #c2cbc7;
+
+  /* Stepped darker than the series mint so it clears text contrast on white. */
+  --accent:          #12855e;
+  --accent-hover:    #0f7150;
+  --accent-subtle:   rgba(18, 133, 94, 0.10);
+  --accent-ring:     rgba(18, 133, 94, 0.34);
+  --accent-ink:      #ffffff;
+
+  --series-1: #1baf7a;
+  --series-2: #2a78d6;
+  --series-3: #eb6834;
+  --series-4: #4a3aa7;
+  --series-5: #eda100;
+  --series-6: #e87ba4;
+
+  --heat-empty: #eef2f0;
+  --heat-1:     #45c898;
+  --heat-2:     #22b482;
+  --heat-3:     #14875f;
+  --heat-4:     #0a4c35;
+
+  --shadow-sm: 0 1px 2px rgba(11, 20, 16, 0.06);
+  --shadow-md: 0 4px 16px rgba(11, 20, 16, 0.08);
+  --shadow-lg: 0 16px 48px rgba(11, 20, 16, 0.12);
+}
+
+/* Follow the OS only until the user states a preference; the explicit
+   data-theme stamp then wins in both directions. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --page: #f4f7f5;        --surface-1: #ffffff;
+    --surface-2: #f8faf9;   --surface-3: #eef2f0;
+    --glass-bg: rgba(255,255,255,0.74);
+    --glass-border: rgba(11,20,16,0.10);
+    --glass-highlight: rgba(255,255,255,0.60);
+    --text-primary: #0b1410; --text-secondary: #4a5551;
+    --text-muted: #78827e;   --text-inverse: #ffffff;
+    --border: rgba(11,20,16,0.10);
+    --border-strong: rgba(11,20,16,0.18);
+    --gridline: #e3e9e6;     --axis: #c2cbc7;
+    --accent: #12855e;       --accent-hover: #0f7150;
+    --accent-subtle: rgba(18,133,94,0.10);
+    --accent-ring: rgba(18,133,94,0.34);
+    --accent-ink: #ffffff;
+    --series-1: #1baf7a; --series-2: #2a78d6; --series-3: #eb6834;
+    --series-4: #4a3aa7; --series-5: #eda100; --series-6: #e87ba4;
+    --heat-empty: #eef2f0; --heat-1: #45c898;
+    --heat-2: #22b482;     --heat-3: #14875f; --heat-4: #0a4c35;
+    --shadow-sm: 0 1px 2px rgba(11,20,16,0.06);
+    --shadow-md: 0 4px 16px rgba(11,20,16,0.08);
+    --shadow-lg: 0 16px 48px rgba(11,20,16,0.12);
   }
-  
-  /* Axis labels */
-  body.dark-mode .ngx-charts .axis-label {
-    fill: #e5e7eb !important;
+}
+
+/* =========================================================================
+   Base
+   ========================================================================= */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-primary);
+  background: var(--page);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 { margin: 0; font-weight: 650; letter-spacing: -0.018em; line-height: 1.2; }
+h1 { font-size: clamp(28px, 4vw, 40px); }
+h2 { font-size: 21px; }
+h3 { font-size: 17px; }
+p  { margin: 0; }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); }
+
+/* Keyboard users need a visible ring; suppress it only for pointer input. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+::selection { background: var(--accent-subtle); color: var(--text-primary); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: content-box; }
+
+/* =========================================================================
+   Primitives
+   ========================================================================= */
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  border: 1px solid var(--glass-border);
+}
+
+/* Charts live on .card, not .card-glass: a plot area must never sit on blur. */
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  position: relative;
+}
+
+/* A single hairline of light along the top edge reads as depth without
+   stacking another shadow. */
+.card-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  pointer-events: none;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: 38px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease);
+}
+.btn:hover { background: var(--surface-3); border-color: var(--border-strong); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary { background: var(--accent); border-color: transparent; color: var(--accent-ink); }
+.btn-primary:hover { background: var(--accent-hover); }
+
+.btn-ghost { background: transparent; border-color: transparent; color: var(--text-secondary); }
+.btn-ghost:hover { background: var(--surface-2); color: var(--text-primary); }
+
+.btn-sm { height: 30px; padding: 0 var(--space-3); font-size: 13px; }
+.btn-icon { width: 34px; height: 34px; padding: 0; }
+
+.input {
+  height: 38px;
+  width: 100%;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.input::placeholder { color: var(--text-muted); }
+.input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 28px;
+  padding: 0 var(--space-3);
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.chip-accent { background: var(--accent-subtle); border-color: transparent; color: var(--accent); }
+
+.label {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.muted { color: var(--text-muted); }
+
+/* Reserved for columns that must align vertically: table rows, axis ticks. */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* =========================================================================
+   Skeletons — shaped like the content they replace, so nothing shifts
+   ========================================================================= */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--glass-highlight), transparent);
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.animate-in { animation: fade-up var(--dur-slow) var(--ease) both; }
+
+/* Honour reduced motion: keep state changes, drop movement. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-  
-  /* Axis ticks (dates, numbers) */
-  body.dark-mode .ngx-charts .tick text {
-    fill: #e5e7eb !important;
+}
+
+/* Blur costs GPU and can wash out text; drop it when the user asks for
+   reduced transparency, keeping an opaque surface. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass, .card-glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--surface-1);
   }
-  
-  /* Legend text */
-  body.dark-mode .ngx-charts .legend-label-text {
-    color: #e5e7eb !important;
-  }
-  
-  /* Grid lines (make softer) */
-  body.dark-mode .ngx-charts .gridline-path {
-    stroke: #475569 !important;
-  }
-  
-  /* Chart background fix */
-  body.dark-mode .ngx-charts {
-    background-color: transparent !important;
-  }
+}
+
+/* Wide content scrolls inside its own container; the page body never does. */
+.scroll-x { overflow-x: auto; overscroll-behavior-x: contain; }

@@ -1,0 +1,76 @@
+<div class="shell" [class.collapsed]="collapsed()" [class.drawer-open]="drawerOpen()">
+
+  <!-- Scrim closes the mobile drawer; hidden from assistive tech since the
+       Escape key and the close button already provide the affordance. -->
+  <div class="scrim" (click)="closeDrawer()" aria-hidden="true"></div>
+
+  <aside class="sidebar glass">
+    <div class="brand">
+      <a class="brand-mark" routerLink="/" (click)="closeDrawer()" aria-label="DevDynamics home">
+        <span class="brand-glyph"><app-icon name="chart" [size]="17"></app-icon></span>
+        <span class="brand-name">DevDynamics</span>
+      </a>
+
+      <button
+        type="button"
+        class="btn btn-ghost btn-icon drawer-close"
+        (click)="closeDrawer()"
+        aria-label="Close navigation">
+        <app-icon name="close" [size]="18"></app-icon>
+      </button>
+    </div>
+
+    <nav class="nav" aria-label="Main">
+      <a
+        *ngFor="let item of navItems"
+        class="nav-item"
+        [routerLink]="item.path"
+        routerLinkActive="active"
+        (click)="closeDrawer()"
+        [attr.title]="collapsed() ? item.label : null">
+        <app-icon [name]="item.icon" [size]="18"></app-icon>
+        <span class="nav-label">{{ item.label }}</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a
+        class="nav-item"
+        href="https://github.com/moto23/Devdynamics_Analytics"
+        target="_blank"
+        rel="noopener noreferrer"
+        [attr.title]="collapsed() ? 'Source' : null">
+        <app-icon name="github" [size]="18"></app-icon>
+        <span class="nav-label">Source</span>
+      </a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="header glass">
+      <button
+        type="button"
+        class="btn btn-ghost btn-icon"
+        (click)="toggleSidebar()"
+        aria-label="Toggle navigation">
+        <app-icon name="menu" [size]="18"></app-icon>
+      </button>
+
+      <!-- Global filters mount here in 4D. -->
+      <div class="header-slot"></div>
+
+      <button
+        type="button"
+        class="btn btn-ghost btn-icon"
+        (click)="toggleTheme()"
+        [attr.aria-label]="theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
+        <app-icon [name]="theme() === 'dark' ? 'sun' : 'moon'" [size]="18"></app-icon>
+      </button>
+    </header>
+
+    <main class="content" id="main-content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+
+</div>

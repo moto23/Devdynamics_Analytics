@@ -62,7 +62,20 @@ export interface AnalyticsFilters {
   excludeBots: boolean;
 }
 
-@Injectable({ providedIn: 'root' })
+/**
+ * Provided by ShellComponent, not the root injector.
+ *
+ * Apollo is supplied at the shell so it stays out of the landing page's
+ * bundle, and a root-provided service cannot resolve a component-provided
+ * dependency — so this must live in the same injector as Apollo.
+ */
+/** Returned when a response carries no summary, so callers never dereference undefined. */
+const EMPTY_SUMMARY: SummaryStats = {
+  totalCommits: 0, totalPullRequests: 0, mergedPullRequests: 0, openPullRequests: 0,
+  contributorCount: 0, repositoryCount: 0, avgPrCycleHours: 0
+};
+
+@Injectable()
 export class GraphqlService {
   constructor(private apollo: Apollo) {}
 
@@ -90,7 +103,7 @@ export class GraphqlService {
       variables: { includeInactive },
       // Sync state changes server-side; never serve it from cache.
       fetchPolicy: 'network-only'
-    }).pipe(map(res => res.data.trackedRepositories));
+    }).pipe(map(res => res.data?.trackedRepositories ?? []));
   }
 
   getSummaryStats(f: AnalyticsFilters): Observable<SummaryStats> {
@@ -104,7 +117,7 @@ export class GraphqlService {
         }
       `,
       variables: this.vars(f)
-    }).pipe(map(res => res.data.summaryStats));
+    }).pipe(map(res => res.data?.summaryStats ?? EMPTY_SUMMARY));
   }
 
   getCommitTrends(f: AnalyticsFilters): Observable<CommitTrendPoint[]> {
@@ -117,7 +130,7 @@ export class GraphqlService {
         }
       `,
       variables: this.vars(f)
-    }).pipe(map(res => res.data.commitTrends));
+    }).pipe(map(res => res.data?.commitTrends ?? []));
   }
 
   getPrCycleTime(f: AnalyticsFilters): Observable<PrCyclePoint[]> {
@@ -130,7 +143,7 @@ export class GraphqlService {
         }
       `,
       variables: this.vars(f)
-    }).pipe(map(res => res.data.prCycleTime));
+    }).pipe(map(res => res.data?.prCycleTime ?? []));
   }
 
   getContributors(f: AnalyticsFilters): Observable<ContributorSummary[]> {
@@ -148,6 +161,6 @@ export class GraphqlService {
         repository: f.repository,
         excludeBots: f.excludeBots
       }
-    }).pipe(map(res => res.data.contributors));
+    }).pipe(map(res => res.data?.contributors ?? []));
   }
 }
