@@ -9,6 +9,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Contributor> Contributors => Set<Contributor>();
     public DbSet<Commit> Commits => Set<Commit>();
     public DbSet<PullRequest> PullRequests => Set<PullRequest>();
+    public DbSet<RepositoryLanguage> RepositoryLanguages => Set<RepositoryLanguage>();
+    public DbSet<SyncRun> SyncRuns => Set<SyncRun>();
 
     /// <summary>
     /// Legacy synthetic activity table. No longer written to or read from once
@@ -46,6 +48,39 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(x => x.AddedBy).HasMaxLength(100);
             entity.Property(x => x.CommitsSyncToken).HasMaxLength(200);
             entity.Property(x => x.PullsSyncToken).HasMaxLength(200);
+            entity.Property(x => x.Nickname).HasMaxLength(120);
+            entity.Property(x => x.Notes).HasMaxLength(1000);
+
+            // The scheduler scans for repositories whose interval has elapsed.
+            entity.HasIndex(x => new { x.IsActive, x.LastSyncCompletedAtUtc });
+        });
+
+        modelBuilder.Entity<RepositoryLanguage>(entity =>
+        {
+            // One row per language per repository; a re-sync updates in place.
+            entity.HasIndex(x => new { x.RepositoryId, x.Language }).IsUnique();
+            entity.Property(x => x.Language).HasMaxLength(80).IsRequired();
+
+            entity.HasOne(x => x.Repository)
+                .WithMany(r => r.Languages)
+                .HasForeignKey(x => x.RepositoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SyncRun>(entity =>
+        {
+            // History is always read newest-first for one repository, which is
+            // also the keyset pagination order.
+            entity.HasIndex(x => new { x.RepositoryId, x.StartedAtUtc });
+
+            entity.Property(x => x.Status).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.Trigger).HasMaxLength(20).IsRequired();
+            entity.Property(x => x.Error).HasMaxLength(1000);
+
+            entity.HasOne(x => x.Repository)
+                .WithMany(r => r.SyncRuns)
+                .HasForeignKey(x => x.RepositoryId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Contributor>(entity =>

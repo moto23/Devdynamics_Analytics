@@ -88,7 +88,50 @@ public class GitHubProvider : ISourceControlProvider
             HtmlUrl: GetString(root, "html_url"),
             DefaultBranch: GetString(root, "default_branch"),
             StarCount: GetInt(root, "stargazers_count") ?? 0,
+            ForkCount: GetInt(root, "forks_count") ?? 0,
+            OpenIssueCount: GetInt(root, "open_issues_count") ?? 0,
             IsPrivate: root.TryGetProperty("private", out var p) && p.GetBoolean());
+    }
+
+    /// <summary>
+    /// GET /repos/{owner}/{repo}/languages returns a flat map of language to
+    /// bytes. A single request, so it is refreshed on every sync.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, long>> GetLanguagesAsync(
+        string fullName,
+        CancellationToken cancellationToken = default)
+    {
+        var (owner, name) = SplitFullName(fullName);
+
+        using var response = await SendWithRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Get, $"repos/{owner}/{name}/languages"),
+            cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            // A missing breakdown must not fail the whole sync.
+            return new Dictionary<string, long>();
+        }
+
+        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        using var doc = JsonDocument.Parse(json);
+
+        if (doc.RootElement.ValueKind != JsonValueKind.Object)
+        {
+            return new Dictionary<string, long>();
+        }
+
+        var result = new Dictionary<string, long>(StringComparer.Ordinal);
+
+        foreach (var property in doc.RootElement.EnumerateObject())
+        {
+            if (property.Value.TryGetInt64(out var bytes) && bytes > 0)
+            {
+                result[property.Name] = bytes;
+            }
+        }
+
+        return result;
     }
 
     // =====================================================================

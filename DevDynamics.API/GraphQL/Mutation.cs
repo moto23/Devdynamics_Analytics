@@ -46,6 +46,25 @@ public class Mutation
         return Map(result);
     }
 
+    /// <summary>
+    /// Updates user-managed metadata. Ingested fields are never editable here:
+    /// they are overwritten by the next sync, so allowing edits would be a lie.
+    /// </summary>
+    public async Task<RepositoryMutationResult> UpdateRepository(
+        [Service] RepositoryRegistryService registry,
+        [Service] IAdminAuthorizer admin,
+        int id,
+        string? nickname = null,
+        string? notes = null,
+        bool? isPinned = null,
+        int? syncIntervalMinutes = null)
+    {
+        admin.EnsureAuthorized();
+
+        var result = await registry.UpdateAsync(id, nickname, notes, isPinned, syncIntervalMinutes);
+        return Map(result);
+    }
+
     /// <summary>Enables or disables without discarding ingested history.</summary>
     public async Task<RepositoryMutationResult> SetRepositoryActive(
         [Service] RepositoryRegistryService registry,

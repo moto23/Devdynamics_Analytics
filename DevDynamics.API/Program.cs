@@ -70,6 +70,11 @@ builder.Services.AddScoped<RepositoryRegistryService>();
 builder.Services.AddSingleton<ISyncQueue, SyncQueue>();
 builder.Services.AddHostedService<SyncWorker>();
 
+// Optional scheduled refresh; disabled unless Schedule:Enabled is set.
+builder.Services.Configure<ScheduleOptions>(
+    builder.Configuration.GetSection(ScheduleOptions.SectionName));
+builder.Services.AddHostedService<ScheduledSyncWorker>();
+
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAdminAuthorizer, AdminAuthorizer>();
 
@@ -174,12 +179,25 @@ static string Scrub(string message) => System.Text.RegularExpressions.Regex.Repl
     @"(?i)(password|pwd|user\s*id|uid)\s*=\s*[^;]*",
     "$1=***");
 
-// Before/after query benchmark. Read-only: it runs SELECTs only.
-app.MapGet("/benchmark", async (AppDbContext db, int? iterations) =>
+// Before/after query benchmark. Read-only, but it runs many queries, so it is
+// gated behind the admin key rather than left open.
+app.MapGet("/benchmark", async (HttpContext http, AppDbContext db, IConfiguration config, int? iterations) =>
 {
-    var report = await new QueryBenchmark(db, providerKind)
-        .RunAsync(iterations ?? 20);
+    var configured = config["Admin:ApiKey"];
 
+    if (string.IsNullOrWhiteSpace(configured))
+    {
+        return Results.Problem("Benchmark is disabled: no admin key is configured.", statusCode: 503);
+    }
+
+    var supplied = http.Request.Headers["X-Admin-Key"].ToString();
+
+    if (string.IsNullOrWhiteSpace(supplied) || supplied != configured)
+    {
+        return Results.Unauthorized();
+    }
+
+    var report = await new QueryBenchmark(db, providerKind).RunAsync(iterations ?? 20);
     return Results.Ok(report);
 });
 

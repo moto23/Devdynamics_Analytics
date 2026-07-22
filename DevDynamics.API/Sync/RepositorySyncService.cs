@@ -38,10 +38,23 @@ public class RepositorySyncService(
 {
     private readonly GitHubOptions _options = options.Value;
 
-    public async Task<SyncOutcome> SyncAsync(int repositoryId, CancellationToken cancellationToken = default)
+    public async Task<SyncOutcome> SyncAsync(
+        int repositoryId,
+        string trigger = SyncTriggers.Manual,
+        CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
         var outcome = new SyncOutcome();
+
+        // History row: the repository holds only the latest outcome, so without
+        // this a run that failed and was retried leaves no trace.
+        var run = new SyncRun
+        {
+            RepositoryId = repositoryId,
+            StartedAtUtc = DateTime.UtcNow,
+            Status = SyncStatuses.Syncing,
+            Trigger = trigger
+        };
 
         var repository = await context.TrackedRepositories
             .FirstOrDefaultAsync(r => r.Id == repositoryId, cancellationToken);
@@ -57,7 +70,7 @@ public class RepositorySyncService(
         if (provider is null || !provider.IsConfigured)
         {
             outcome.Error = $"Provider '{repository.Provider}' is unavailable or not configured.";
-            await MarkFailedAsync(repository, outcome.Error, stopwatch, cancellationToken);
+            await MarkFailedAsync(repository, outcome.Error, stopwatch, cancellationToken, run, outcome);
             return outcome;
         }
 
@@ -69,6 +82,8 @@ public class RepositorySyncService(
         try
         {
             await RefreshMetadataAsync(repository, provider, cancellationToken);
+
+            await RefreshLanguagesAsync(repository, provider, cancellationToken);
 
             var commitResult = await SyncCommitsAsync(repository, provider, outcome, cancellationToken);
             var pullResult = await SyncPullRequestsAsync(repository, provider, outcome, cancellationToken);
@@ -85,6 +100,8 @@ public class RepositorySyncService(
             repository.LastSyncCompletedAtUtc = DateTime.UtcNow;
             repository.LastSyncDurationMs = (int)stopwatch.ElapsedMilliseconds;
 
+            RecordRun(run, repository.SyncStatus, outcome, stopwatch, null);
+
             await context.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(
@@ -98,14 +115,14 @@ public class RepositorySyncService(
             // so deactivate rather than fail on every future run.
             repository.IsActive = false;
             outcome.Error = ex.Message;
-            await MarkFailedAsync(repository, ex.Message, stopwatch, cancellationToken);
+            await MarkFailedAsync(repository, ex.Message, stopwatch, cancellationToken, run, outcome);
 
             logger.LogWarning("Deactivated {Repo}: {Message}", repository.FullName, ex.Message);
         }
         catch (Exception ex)
         {
             outcome.Error = ex.Message;
-            await MarkFailedAsync(repository, ex.Message, stopwatch, cancellationToken);
+            await MarkFailedAsync(repository, ex.Message, stopwatch, cancellationToken, run, outcome);
 
             logger.LogError(ex, "Sync failed for {Repo}.", repository.FullName);
         }
@@ -136,7 +153,53 @@ public class RepositorySyncService(
         repository.HtmlUrl = descriptor.HtmlUrl;
         repository.DefaultBranch = descriptor.DefaultBranch;
         repository.StarCount = descriptor.StarCount;
+        repository.ForkCount = descriptor.ForkCount;
+        repository.OpenIssueCount = descriptor.OpenIssueCount;
         repository.IsPrivate = descriptor.IsPrivate;
+    }
+
+    /// <summary>
+    /// Refreshes the per-language byte breakdown. One extra request per sync,
+    /// which is cheap; the primary language alone is not a distribution.
+    /// </summary>
+    private async Task RefreshLanguagesAsync(
+        TrackedRepository repository,
+        ISourceControlProvider provider,
+        CancellationToken cancellationToken)
+    {
+        var languages = await provider.GetLanguagesAsync(repository.FullName, cancellationToken);
+        if (languages.Count == 0) return;
+
+        var existing = await context.RepositoryLanguages
+            .Where(l => l.RepositoryId == repository.Id)
+            .ToListAsync(cancellationToken);
+
+        foreach (var (language, bytes) in languages)
+        {
+            var row = existing.FirstOrDefault(l => l.Language == language);
+
+            if (row is null)
+            {
+                context.RepositoryLanguages.Add(new RepositoryLanguage
+                {
+                    RepositoryId = repository.Id,
+                    Language = language,
+                    Bytes = bytes
+                });
+            }
+            else
+            {
+                row.Bytes = bytes;
+            }
+        }
+
+        // Languages removed upstream should disappear rather than linger.
+        foreach (var stale in existing.Where(l => !languages.ContainsKey(l.Language)))
+        {
+            context.RepositoryLanguages.Remove(stale);
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
     }
 
     // =====================================================================
@@ -424,13 +487,43 @@ public class RepositorySyncService(
         TrackedRepository repository,
         string error,
         Stopwatch stopwatch,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        SyncRun? run = null,
+        SyncOutcome? outcome = null)
     {
         repository.SyncStatus = SyncStatuses.Failed;
-        repository.LastSyncError = error.Length > MaxErrorLength ? error[..MaxErrorLength] : error;
+        repository.LastSyncError = Truncate(error);
         repository.LastSyncCompletedAtUtc = DateTime.UtcNow;
         repository.LastSyncDurationMs = (int)stopwatch.ElapsedMilliseconds;
 
+        if (run is not null)
+        {
+            RecordRun(run, SyncStatuses.Failed, outcome ?? new SyncOutcome(), stopwatch, error);
+        }
+
         await context.SaveChangesAsync(cancellationToken);
     }
+
+    /// <summary>Completes the history row and attaches it for saving.</summary>
+    private void RecordRun(
+        SyncRun run,
+        string status,
+        SyncOutcome outcome,
+        Stopwatch stopwatch,
+        string? error)
+    {
+        run.Status = status;
+        run.CompletedAtUtc = DateTime.UtcNow;
+        run.DurationMs = (int)stopwatch.ElapsedMilliseconds;
+        run.CommitsIngested = outcome.CommitsIngested;
+        run.PullRequestsIngested = outcome.PullRequestsIngested;
+        run.ContributorsAdded = outcome.ContributorsSeen;
+        run.Truncated = outcome.Truncated;
+        run.Error = error is null ? null : Truncate(error);
+
+        context.SyncRuns.Add(run);
+    }
+
+    private static string Truncate(string value) =>
+        value.Length > MaxErrorLength ? value[..MaxErrorLength] : value;
 }

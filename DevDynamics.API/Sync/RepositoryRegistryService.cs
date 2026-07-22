@@ -1,3 +1,4 @@
+using DevDynamics.API.Analytics;
 using DevDynamics.API.Data;
 using DevDynamics.API.Models;
 using DevDynamics.API.SourceControl;
@@ -37,9 +38,120 @@ public class RepositoryRegistryService(
         }
 
         return await query
-            .OrderByDescending(r => r.IsActive)
+            .OrderByDescending(r => r.IsPinned)
+            .ThenByDescending(r => r.IsActive)
             .ThenBy(r => r.FullName)
             .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Paginated, searchable, sortable registry listing.
+    ///
+    /// Sorting and searching run in SQL rather than over a materialised list,
+    /// so the page stays cheap as the registry grows.
+    /// </summary>
+    public async Task<Connection<TrackedRepository>> GetPageAsync(
+        bool includeInactive,
+        string? search,
+        string? sortBy,
+        bool descending,
+        string? after,
+        int? first,
+        CancellationToken cancellationToken = default)
+    {
+        var pageSize = Cursor.PageSize(first, 25);
+        var offset = Cursor.DecodeOffset(after);
+
+        var query = context.TrackedRepositories.AsNoTracking();
+
+        if (!includeInactive)
+        {
+            query = query.Where(r => r.IsActive);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(r =>
+                r.FullName.Contains(term) ||
+                (r.Language != null && r.Language.Contains(term)) ||
+                (r.Nickname != null && r.Nickname.Contains(term)));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        query = (sortBy?.ToLowerInvariant()) switch
+        {
+            "commits"      => Order(query, r => r.TotalCommits, descending),
+            "pullrequests" => Order(query, r => r.TotalPullRequests, descending),
+            "contributors" => Order(query, r => r.TotalContributors, descending),
+            "stars"        => Order(query, r => r.StarCount, descending),
+            "lastsynced"   => descending
+                ? query.OrderByDescending(r => r.LastSyncCompletedAtUtc).ThenBy(r => r.Id)
+                : query.OrderBy(r => r.LastSyncCompletedAtUtc).ThenBy(r => r.Id),
+            _ => descending
+                ? query.OrderByDescending(r => r.IsPinned).ThenByDescending(r => r.FullName)
+                : query.OrderByDescending(r => r.IsPinned).ThenBy(r => r.FullName)
+        };
+
+        var items = await query.Skip(offset).Take(pageSize).ToListAsync(cancellationToken);
+
+        return new Connection<TrackedRepository>
+        {
+            Items = items,
+            PageInfo = new PageInfo
+            {
+                TotalCount = totalCount,
+                HasNextPage = offset + items.Count < totalCount,
+                HasPreviousPage = offset > 0,
+                EndCursor = Cursor.EncodeOffset(offset + items.Count)
+            }
+        };
+    }
+
+    private static IQueryable<TrackedRepository> Order<TKey>(
+        IQueryable<TrackedRepository> query,
+        System.Linq.Expressions.Expression<Func<TrackedRepository, TKey>> key,
+        bool descending) =>
+        descending
+            ? query.OrderByDescending(key).ThenBy(r => r.Id)
+            : query.OrderBy(key).ThenBy(r => r.Id);
+
+    /// <summary>Updates user-managed metadata. Ingested fields are never touched here.</summary>
+    public async Task<RegistryActionResult> UpdateAsync(
+        int id,
+        string? nickname,
+        string? notes,
+        bool? isPinned,
+        int? syncIntervalMinutes,
+        CancellationToken cancellationToken = default)
+    {
+        var repository = await context.TrackedRepositories
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+        if (repository is null)
+        {
+            return Fail($"Repository {id} not found.");
+        }
+
+        // An empty string clears the field; null leaves it unchanged.
+        if (nickname is not null)
+            repository.Nickname = string.IsNullOrWhiteSpace(nickname) ? null : nickname.Trim();
+
+        if (notes is not null)
+            repository.Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+
+        if (isPinned.HasValue) repository.IsPinned = isPinned.Value;
+        if (syncIntervalMinutes.HasValue) repository.SyncIntervalMinutes = syncIntervalMinutes.Value;
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        return new RegistryActionResult
+        {
+            Success = true,
+            Message = $"{repository.FullName} updated.",
+            Repository = repository
+        };
     }
 
     /// <summary>

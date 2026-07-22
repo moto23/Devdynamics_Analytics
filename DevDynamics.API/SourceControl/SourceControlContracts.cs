@@ -16,6 +16,8 @@ public record RepositoryDescriptor(
     string? HtmlUrl,
     string? DefaultBranch,
     int StarCount,
+    int ForkCount,
+    int OpenIssueCount,
     bool IsPrivate);
 
 public record ContributorRecord(
@@ -124,6 +126,14 @@ public interface ISourceControlProvider
     IAsyncEnumerable<PullRequestRecord> GetPullRequestsAsync(
         SyncContext context,
         SyncFetchResult result,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Bytes of source per language. Returns an empty map when the provider
+    /// cannot supply one, so callers never need to special-case it.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, long>> GetLanguagesAsync(
+        string fullName,
         CancellationToken cancellationToken = default);
 }
 

@@ -94,7 +94,7 @@ public class SyncWorker(
                 using var scope = scopeFactory.CreateScope();
                 var syncService = scope.ServiceProvider.GetRequiredService<RepositorySyncService>();
 
-                await syncService.SyncAsync(repositoryId, stoppingToken);
+                await syncService.SyncAsync(repositoryId, SyncTriggers.Manual, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

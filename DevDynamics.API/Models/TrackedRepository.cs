@@ -50,7 +50,29 @@ public class TrackedRepository
     public string? DefaultBranch { get; set; }
 
     public int StarCount { get; set; }
+    public int ForkCount { get; set; }
+    public int OpenIssueCount { get; set; }
     public bool IsPrivate { get; set; }
+
+    // =====================================================================
+    // User-managed metadata
+    // =====================================================================
+
+    /// <summary>Optional display name, for when "owner/name" is not how a team refers to it.</summary>
+    public string? Nickname { get; set; }
+
+    /// <summary>Free-text note shown alongside the repository.</summary>
+    public string? Notes { get; set; }
+
+    /// <summary>Pinned repositories sort ahead of the rest.</summary>
+    public bool IsPinned { get; set; }
+
+    /// <summary>
+    /// How often the scheduler may re-sync this repository. Null falls back to
+    /// the global interval; zero or less excludes it from scheduled syncs
+    /// without disabling it for manual ones.
+    /// </summary>
+    public int? SyncIntervalMinutes { get; set; }
 
     // =====================================================================
     // Lifecycle
@@ -117,4 +139,6 @@ public class TrackedRepository
 
     public List<Commit> Commits { get; set; } = [];
     public List<PullRequest> PullRequests { get; set; } = [];
+    public List<RepositoryLanguage> Languages { get; set; } = [];
+    public List<SyncRun> SyncRuns { get; set; } = [];
 }
