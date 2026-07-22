@@ -46,6 +46,25 @@ export interface RepositoryHealth {
   lastCommitUtc: string | null;
 }
 
+export interface HeatmapDay {
+  date: string;
+  count: number;
+}
+
+export interface RepositoryContribution {
+  fullName: string;
+  commits: number;
+}
+
+export interface ContributorDetail {
+  stats: ContributorSummary & {
+    firstActivityUtc: string | null;
+    lastActivityUtc: string | null;
+  };
+  repositories: RepositoryContribution[];
+  heatmap: HeatmapDay[];
+}
+
 export interface LanguageSlice {
   language: string;
   bytes: number;
@@ -135,6 +154,8 @@ export interface ContributorSummary {
   pullRequestsMerged: number;
   repositoryCount: number;
   score: number;
+  firstActivityUtc?: string | null;
+  lastActivityUtc?: string | null;
 }
 
 export interface PageInfo {
@@ -268,6 +289,7 @@ export class GraphqlService {
             items {
               login name avatarUrl htmlUrl isBot
               commits pullRequestsOpened pullRequestsMerged repositoryCount score
+              firstActivityUtc lastActivityUtc
             }
             pageInfo { hasNextPage hasPreviousPage endCursor totalCount }
           }
@@ -496,6 +518,49 @@ export class GraphqlService {
       context
     }).pipe(map(res => res.data?.syncAllRepositories ?? failedMutation()));
   }
+
+  getContributorDetail(
+    login: string,
+    options: { startDate?: string | null; endDate?: string | null; repository?: string | null } = {}
+  ): Observable<ContributorDetail | null> {
+    return this.apollo.query<any>({
+      query: gql`
+        query ($login: String!, $startDate: DateTime, $endDate: DateTime, $repository: String) {
+          contributorDetail(login: $login, startDate: $startDate, endDate: $endDate, repository: $repository) {
+            stats {
+              login name avatarUrl htmlUrl isBot
+              commits pullRequestsOpened pullRequestsMerged repositoryCount score
+              firstActivityUtc lastActivityUtc
+            }
+            repositories { fullName commits }
+            heatmap { date count }
+          }
+        }
+      `,
+      variables: {
+        login,
+        startDate: options.startDate ?? null,
+        endDate: options.endDate ?? null,
+        repository: options.repository ?? null
+      }
+    }).pipe(map(res => res.data?.contributorDetail ?? null));
+  }
+
+  getContributionHeatmap(f: AnalyticsFilters): Observable<HeatmapDay[]> {
+    return this.apollo.query<any>({
+      query: gql`
+        query ($startDate: DateTime, $endDate: DateTime, $contributor: String,
+               $repository: String, $excludeBots: Boolean!) {
+          contributionHeatmap(startDate: $startDate, endDate: $endDate, contributor: $contributor,
+                              repository: $repository, excludeBots: $excludeBots) {
+            date count
+          }
+        }
+      `,
+      variables: this.vars(f)
+    }).pipe(map(res => res.data?.contributionHeatmap ?? []));
+  }
+
 }
 
 /** Used when a mutation returns no payload, so callers never see undefined. */

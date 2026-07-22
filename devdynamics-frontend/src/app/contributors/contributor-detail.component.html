@@ -1,0 +1,230 @@
+<div class="page">
+
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a routerLink="/contributors">Contributors</a>
+    <app-icon name="chevron-right" [size]="13"></app-icon>
+    <span>{{ '@' + login }}</span>
+  </nav>
+
+  <div class="card head-skeleton" *ngIf="loading()">
+    <div class="skeleton" style="width:72px;height:72px;border-radius:50%"></div>
+    <div style="flex:1">
+      <div class="skeleton" style="width:36%;height:22px;border-radius:6px"></div>
+      <div class="skeleton" style="width:58%;height:14px;border-radius:6px;margin-top:12px"></div>
+    </div>
+  </div>
+
+  <app-empty-state
+    *ngIf="notFound()"
+    icon="users"
+    title="Contributor not found"
+    [message]="'@' + login + ' has no ingested activity in the tracked repositories.'">
+    <a class="btn btn-primary" routerLink="/contributors">Back to contributors</a>
+  </app-empty-state>
+
+  <div class="notice notice-error" *ngIf="errorMessage()">
+    <app-icon name="alert" [size]="16"></app-icon>
+    <div>{{ errorMessage() }}</div>
+  </div>
+
+  <ng-container *ngIf="!loading() && detail">
+
+    <!-- Header -->
+    <header class="card-glass person-head">
+      <img class="person-avatar" [src]="avatar" [alt]="login + ' avatar'" width="72" height="72" />
+
+      <div class="person-info">
+        <div class="person-title">
+          <h1>{{ detail.stats.name || login }}</h1>
+          <app-status-badge *ngIf="detail.stats.isBot" label="Bot" tone="neutral"></app-status-badge>
+        </div>
+
+        <p class="person-login muted">{{ '@' + login }}</p>
+
+        <div class="person-meta">
+          <span class="meta">
+            <app-icon name="clock" [size]="13"></app-icon>
+            Active {{ date(detail.stats.firstActivityUtc) }} — {{ date(detail.stats.lastActivityUtc) }}
+          </span>
+          <span class="meta">
+            <app-icon name="repo" [size]="13"></app-icon>
+            {{ detail.stats.repositoryCount }}
+            {{ detail.stats.repositoryCount === 1 ? 'repository' : 'repositories' }}
+          </span>
+        </div>
+      </div>
+
+      <a class="btn btn-sm" [href]="profileUrl" target="_blank" rel="noopener noreferrer">
+        <app-icon name="github" [size]="14"></app-icon>
+        GitHub profile
+        <app-icon name="external" [size]="12"></app-icon>
+      </a>
+    </header>
+
+    <!-- KPIs -->
+    <section class="kpi-grid" aria-label="Contributor metrics">
+      <app-stat-tile label="Commits" icon="commit" [value]="detail.stats.commits"></app-stat-tile>
+      <app-stat-tile label="PRs opened" icon="pr" [value]="detail.stats.pullRequestsOpened" [note]="mergeRate"></app-stat-tile>
+      <app-stat-tile label="PRs merged" icon="check" [value]="detail.stats.pullRequestsMerged"></app-stat-tile>
+      <app-stat-tile label="Repositories" icon="repo" [value]="detail.stats.repositoryCount"></app-stat-tile>
+      <app-stat-tile label="Active days" icon="grid" [value]="activeDays"></app-stat-tile>
+      <app-stat-tile label="Score" icon="chart" [value]="detail.stats.score"></app-stat-tile>
+    </section>
+
+    <!-- Heatmap -->
+    <section class="card panel">
+      <div class="panel-head">
+        <h2>Contribution activity</h2>
+        <p class="muted panel-sub">Commits per day across all tracked repositories.</p>
+      </div>
+      <app-heatmap [days]="detail.heatmap"></app-heatmap>
+    </section>
+
+    <!-- Score breakdown -->
+    <section class="card panel" *ngIf="scoreParts.length">
+      <div class="panel-head">
+        <h2>Score breakdown</h2>
+        <p class="muted panel-sub">
+          Every input and its weight is shown, because a composite number nobody can
+          decompose is not worth trusting.
+        </p>
+      </div>
+
+      <div class="score-bar" role="img" [attr.aria-label]="'Score composition for ' + login">
+        <span
+          *ngFor="let part of scoreParts"
+          class="score-seg"
+          [style.width.%]="part.share"
+          [style.background]="'var(--series-' + (part.colorIndex + 1) + ')'"
+          [attr.title]="part.label + ': ' + part.points + ' points'"></span>
+      </div>
+
+      <table class="score-table">
+        <thead>
+          <tr>
+            <th scope="col">Input</th>
+            <th scope="col" class="numeric">Count</th>
+            <th scope="col" class="numeric">Weight</th>
+            <th scope="col" class="numeric">Points</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let part of scoreParts">
+            <td>
+              <span class="swatch" [style.background]="'var(--series-' + (part.colorIndex + 1) + ')'"></span>
+              {{ part.label }}
+            </td>
+            <td class="numeric">{{ part.count.toLocaleString() }}</td>
+            <td class="numeric muted">×{{ part.weight }}</td>
+            <td class="numeric strong">{{ part.points.toLocaleString() }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3">Total</td>
+            <td class="numeric strong">{{ scoreTotal.toLocaleString() }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
+
+    <!-- Timeline + repository split -->
+    <div class="chart-pair">
+      <app-chart-card
+        title="Commit timeline"
+        subtitle="Commits per week"
+        [height]="230"
+        [isEmpty]="!hasTimeline"
+        emptyHint="No commits in the sync window.">
+        <app-line-chart [labels]="timelineLabels" [series]="timelineSeries" [height]="230"
+                        ariaLabel="Commits per week"></app-line-chart>
+      </app-chart-card>
+
+      <app-chart-card
+        title="Repository split"
+        subtitle="Where this contributor works"
+        [height]="230"
+        [isEmpty]="!hasRepos">
+        <app-bar-chart [labels]="repoLabels" [data]="repoCounts" label="Commits"
+                       [horizontal]="true" [colorPerBar]="true" [height]="230"
+                       ariaLabel="Commits by repository"></app-bar-chart>
+      </app-chart-card>
+    </div>
+
+    <!-- Recent pull requests -->
+    <section class="card table-card" *ngIf="pulls.length">
+      <div class="panel-head padded">
+        <h2>Recent pull requests</h2>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th scope="col">Pull request</th>
+              <th scope="col">Repository</th>
+              <th scope="col">State</th>
+              <th scope="col">Opened</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of pulls">
+              <td class="primary">
+                <span class="pr-number">#{{ p.number }}</span>
+                <span class="msg">{{ p.title }}</span>
+              </td>
+              <td class="muted nowrap">{{ p.repository?.fullName || '—' }}</td>
+              <td><app-status-badge [label]="prLabel(p)" [tone]="prTone(p)"></app-status-badge></td>
+              <td class="nowrap muted">{{ date(p.createdAt) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Recent commits -->
+    <section class="card table-card">
+      <div class="panel-head padded">
+        <h2>Recent commits</h2>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th scope="col">Commit</th>
+              <th scope="col">Repository</th>
+              <th scope="col">Date</th>
+            </tr>
+          </thead>
+          <tbody *ngIf="commitsLoading()">
+            <tr *ngFor="let _ of skeletonRows">
+              <td colspan="3"><div class="skeleton" style="height:30px;border-radius:8px"></div></td>
+            </tr>
+          </tbody>
+          <tbody *ngIf="!commitsLoading()">
+            <tr *ngFor="let c of commits">
+              <td class="primary">
+                <code class="sha">{{ shortSha(c.sha) }}</code>
+                <span class="msg">{{ firstLine(c.message) }}</span>
+              </td>
+              <td class="muted nowrap">{{ c.repository?.fullName || '—' }}</td>
+              <td class="nowrap muted">{{ relative(c.committedAt) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <app-empty-state *ngIf="!commitsLoading() && commits.length === 0"
+                       icon="commit" title="No commits"
+                       message="Nothing was ingested for this contributor."></app-empty-state>
+
+      <app-paginator *ngIf="commits.length"
+                     [hasNext]="commitsPage.hasNextPage"
+                     [hasPrevious]="commitsPage.hasPreviousPage"
+                     [shown]="commits.length"
+                     [loading]="commitsLoading()"
+                     (next)="nextCommits()" (previous)="prevCommits()"></app-paginator>
+    </section>
+
+  </ng-container>
+</div>

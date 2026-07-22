@@ -37,11 +37,14 @@ export const routes: Routes = [
         title: 'Repository — DevDynamics'
       },
       {
-        // Replaced by the dedicated contributors page in 5C; routing to it must
-        // not 404 in the meantime.
         path: 'contributors',
-        loadComponent: () => import('./repositories/repositories.component').then(m => m.RepositoriesComponent),
+        loadComponent: () => import('./contributors/contributors.component').then(m => m.ContributorsComponent),
         title: 'Contributors — DevDynamics'
+      },
+      {
+        path: 'contributors/:login',
+        loadComponent: () => import('./contributors/contributor-detail.component').then(m => m.ContributorDetailComponent),
+        title: 'Contributor — DevDynamics'
       },
       {
         path: 'settings',

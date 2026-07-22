@@ -1,0 +1,153 @@
+<div class="page">
+
+  <header class="page-head">
+    <div>
+      <h1>Contributors</h1>
+      <p class="page-sub muted">
+        {{ pageInfo.totalCount ?? 0 }} people across
+        {{ repository || 'all tracked repositories' }}
+      </p>
+    </div>
+  </header>
+
+  <!-- Toolbar -->
+  <section class="card-glass toolbar" aria-label="Contributor filters">
+    <div class="search-field">
+      <app-icon name="search" [size]="15"></app-icon>
+      <input
+        type="search"
+        class="search-input"
+        placeholder="Search by username or name…"
+        [(ngModel)]="search"
+        (ngModelChange)="onSearchInput()"
+        aria-label="Search contributors" />
+    </div>
+
+    <app-combobox
+      class="repo-filter"
+      [options]="repositoryOptions"
+      [value]="repository"
+      placeholder="All repositories"
+      ariaLabel="Filter by repository"
+      icon="repo"
+      (valueChange)="onRepositoryChange($event)">
+    </app-combobox>
+
+    <label class="toggle">
+      <input type="checkbox" [(ngModel)]="excludeBots" (change)="onBotsChange()" />
+      <span>Exclude bots</span>
+    </label>
+  </section>
+
+  <!-- Error -->
+  <div class="notice notice-error" *ngIf="errorMessage()">
+    <app-icon name="alert" [size]="16"></app-icon>
+    <div>
+      {{ errorMessage() }}
+      <button type="button" class="btn btn-sm retry" (click)="reload()">Retry</button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <section class="card table-card" *ngIf="!errorMessage()">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th scope="col">Contributor</th>
+            <th scope="col" class="numeric">
+              <app-sort-header [active]="sortBy === 'commits'" [descending]="descending" (toggle)="toggleSort('commits')">Commits</app-sort-header>
+            </th>
+            <th scope="col" class="numeric">PRs opened</th>
+            <th scope="col" class="numeric">PRs merged</th>
+            <th scope="col" class="numeric">
+              <app-sort-header [active]="sortBy === 'repositories'" [descending]="descending" (toggle)="toggleSort('repositories')">Repos</app-sort-header>
+            </th>
+            <th scope="col" class="numeric">Score</th>
+            <th scope="col">Active for</th>
+            <th scope="col">
+              <app-sort-header [active]="sortBy === 'recent'" [descending]="descending" (toggle)="toggleSort('recent')">Last seen</app-sort-header>
+            </th>
+            <th scope="col"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+
+        <tbody *ngIf="loading()">
+          <tr *ngFor="let _ of skeletonRows">
+            <td colspan="9"><div class="skeleton" style="height:34px;border-radius:8px"></div></td>
+          </tr>
+        </tbody>
+
+        <tbody *ngIf="!loading()">
+          <tr
+            *ngFor="let c of contributors"
+            class="clickable"
+            tabindex="0"
+            (click)="view(c)"
+            (keydown.enter)="view(c)">
+
+            <td class="primary">
+              <div class="person">
+                <img class="avatar" [src]="avatar(c)" [alt]="c.login + ' avatar'" loading="lazy" width="30" height="30" />
+                <div class="person-text">
+                  <span class="person-name">
+                    {{ c.name || c.login }}
+                    <span class="bot-tag" *ngIf="c.isBot">bot</span>
+                  </span>
+                  <span class="person-login muted">{{ '@' + c.login }}</span>
+                </div>
+              </div>
+            </td>
+
+            <td class="numeric strong">{{ c.commits.toLocaleString() }}</td>
+            <td class="numeric">{{ c.pullRequestsOpened.toLocaleString() }}</td>
+            <td class="numeric">{{ c.pullRequestsMerged.toLocaleString() }}</td>
+            <td class="numeric">{{ c.repositoryCount }}</td>
+            <td class="numeric score">{{ c.score.toLocaleString() }}</td>
+            <td class="nowrap muted">{{ activitySpan(c) }}</td>
+            <td class="nowrap muted">{{ relative(c.lastActivityUtc) }}</td>
+
+            <td class="actions-cell">
+              <div class="row-actions quick">
+                <a
+                  class="btn btn-ghost btn-icon"
+                  [href]="c.htmlUrl || ('https://github.com/' + c.login)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  (click)="$event.stopPropagation()"
+                  [attr.aria-label]="'Open ' + c.login + ' on GitHub'">
+                  <app-icon name="github" [size]="15"></app-icon>
+                </a>
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-icon"
+                  (click)="viewDashboard($event, c)"
+                  [attr.aria-label]="'Filter the dashboard by ' + c.login">
+                  <app-icon name="grid" [size]="15"></app-icon>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <app-empty-state
+      *ngIf="isEmpty"
+      icon="users"
+      title="No contributors match"
+      [message]="search ? 'Try a different search term.' : 'Sync a repository to start collecting contributor activity.'">
+    </app-empty-state>
+
+    <app-paginator
+      *ngIf="!isEmpty"
+      [hasNext]="pageInfo.hasNextPage"
+      [hasPrevious]="pageInfo.hasPreviousPage"
+      [total]="pageInfo.totalCount"
+      [shown]="contributors.length"
+      [loading]="loading()"
+      (next)="nextPage()"
+      (previous)="previousPage()">
+    </app-paginator>
+  </section>
+</div>
