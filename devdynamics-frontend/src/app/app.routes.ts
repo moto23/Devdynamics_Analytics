@@ -30,6 +30,13 @@ export const routes: Routes = [
         title: 'Repositories — DevDynamics'
       },
       {
+        // owner/name rather than an id, so the URL is the identifier a user
+        // can read and type.
+        path: 'repositories/:owner/:name',
+        loadComponent: () => import('./repositories/repository-detail.component').then(m => m.RepositoryDetailComponent),
+        title: 'Repository — DevDynamics'
+      },
+      {
         // Replaced by the dedicated contributors page in 5C; routing to it must
         // not 404 in the meantime.
         path: 'contributors',

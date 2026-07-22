@@ -1,0 +1,310 @@
+<div class="page">
+
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a routerLink="/repositories">Repositories</a>
+    <app-icon name="chevron-right" [size]="13"></app-icon>
+    <span>{{ fullName }}</span>
+  </nav>
+
+  <!-- Loading -->
+  <div class="card head-skeleton" *ngIf="loading()">
+    <div class="skeleton" style="width:64px;height:64px;border-radius:14px"></div>
+    <div style="flex:1">
+      <div class="skeleton" style="width:44%;height:22px;border-radius:6px"></div>
+      <div class="skeleton" style="width:66%;height:14px;border-radius:6px;margin-top:12px"></div>
+    </div>
+  </div>
+
+  <!-- Not found / error -->
+  <app-empty-state
+    *ngIf="notFound()"
+    icon="repo"
+    title="Repository not tracked"
+    [message]="fullName + ' is not in the registry. It may have been removed.'">
+    <a class="btn btn-primary" routerLink="/repositories">Back to repositories</a>
+  </app-empty-state>
+
+  <div class="notice notice-error" *ngIf="errorMessage()">
+    <app-icon name="alert" [size]="16"></app-icon>
+    <div>{{ errorMessage() }}</div>
+  </div>
+
+  <ng-container *ngIf="!loading() && repository">
+
+    <!-- Header -->
+    <header class="card-glass repo-head">
+      <img class="repo-avatar" [src]="avatarUrl" [alt]="repository.owner + ' avatar'" width="64" height="64" />
+
+      <div class="repo-info">
+        <div class="repo-title">
+          <h1>{{ repository.nickname?.trim() || repository.fullName }}</h1>
+          <a
+            *ngIf="repository.htmlUrl"
+            class="gh-link"
+            [href]="repository.htmlUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            [attr.aria-label]="'Open ' + repository.fullName + ' on GitHub'">
+            <app-icon name="github" [size]="16"></app-icon>
+          </a>
+        </div>
+
+        <p class="repo-desc muted" *ngIf="repository.description">{{ repository.description }}</p>
+        <p class="repo-desc muted" *ngIf="repository.nickname">{{ repository.fullName }}</p>
+
+        <div class="repo-meta">
+          <span class="meta" *ngIf="repository.language"><span class="lang-dot"></span>{{ repository.language }}</span>
+          <span class="meta"><app-icon name="chart" [size]="13"></app-icon>{{ repository.starCount.toLocaleString() }} stars</span>
+          <span class="meta"><app-icon name="pr" [size]="13"></app-icon>{{ repository.forkCount.toLocaleString() }} forks</span>
+          <span class="meta"><app-icon name="alert" [size]="13"></app-icon>{{ repository.openIssueCount.toLocaleString() }} open issues</span>
+          <app-status-badge [label]="repository.syncStatus" [tone]="syncTone(repository.syncStatus)"></app-status-badge>
+          <app-status-badge *ngIf="!repository.isActive" label="Disabled" tone="neutral"></app-status-badge>
+          <span class="meta muted">Synced {{ relative(repository.lastSyncCompletedAtUtc) }}</span>
+        </div>
+
+        <p class="repo-notes" *ngIf="repository.notes">{{ repository.notes }}</p>
+      </div>
+
+      <div class="repo-actions" *ngIf="admin.isAuthenticated()">
+        <button type="button" class="btn btn-sm" (click)="syncNow()" [disabled]="!repository.isActive">
+          <app-icon name="refresh" [size]="14"></app-icon> Sync now
+        </button>
+        <button type="button" class="btn btn-sm" (click)="editing.set(true)">
+          <app-icon name="settings" [size]="14"></app-icon> Settings
+        </button>
+      </div>
+    </header>
+
+    <div class="notice notice-error" *ngIf="repository.lastSyncError">
+      <app-icon name="alert" [size]="16"></app-icon>
+      <div><strong>Last sync failed.</strong> {{ repository.lastSyncError }}</div>
+    </div>
+
+    <!-- Tabs -->
+    <nav class="tabs" role="tablist" aria-label="Repository sections">
+      <button type="button" role="tab" class="tab" [class.active]="tab() === 'overview'"
+              [attr.aria-selected]="tab() === 'overview'" (click)="selectTab('overview')">Overview</button>
+      <button type="button" role="tab" class="tab" [class.active]="tab() === 'commits'"
+              [attr.aria-selected]="tab() === 'commits'" (click)="selectTab('commits')">Commits</button>
+      <button type="button" role="tab" class="tab" [class.active]="tab() === 'pulls'"
+              [attr.aria-selected]="tab() === 'pulls'" (click)="selectTab('pulls')">Pull requests</button>
+      <button type="button" role="tab" class="tab" [class.active]="tab() === 'history'"
+              [attr.aria-selected]="tab() === 'history'" (click)="selectTab('history')">Sync history</button>
+    </nav>
+
+    <!-- ===== Overview ===== -->
+    <ng-container *ngIf="tab() === 'overview'">
+
+      <section class="kpi-grid" aria-label="Repository metrics">
+        <app-stat-tile label="Commits" icon="commit" [value]="health?.commits ?? repository.totalCommits"></app-stat-tile>
+        <app-stat-tile label="Pull requests" icon="pr" [value]="health?.pullRequests ?? repository.totalPullRequests"
+                       [note]="health ? percent(health.mergeRate) + ' merged' : ''"></app-stat-tile>
+        <app-stat-tile label="Cycle (median)" icon="clock" [value]="hours(health?.medianCycleHours)"
+                       [note]="health ? 'p95 ' + hours(health.p95CycleHours) : ''"></app-stat-tile>
+        <app-stat-tile label="Contributors" icon="users" [value]="health?.contributors ?? repository.totalContributors"></app-stat-tile>
+        <app-stat-tile label="Commits / week" icon="chart" [value]="health?.commitsPerWeek ?? 0"></app-stat-tile>
+        <app-stat-tile label="Active days" icon="grid" [value]="health?.activeDays ?? 0"></app-stat-tile>
+      </section>
+
+      <!-- Health -->
+      <section class="card health" *ngIf="health">
+        <h2>Health</h2>
+        <p class="muted health-note">
+          Derived entirely from ingested data. Review latency and code churn are not shown
+          because the ingested data cannot support them.
+        </p>
+
+        <div class="health-grid">
+          <div class="health-item">
+            <span class="label">Merge rate</span>
+            <div class="meter"><div class="meter-fill" [style.width.%]="health.mergeRate * 100"></div></div>
+            <span class="health-value">{{ percent(health.mergeRate) }} of {{ health.pullRequests }} PRs</span>
+          </div>
+
+          <div class="health-item">
+            <span class="label">Top contributor share</span>
+            <div class="meter"><div class="meter-fill warn" [style.width.%]="health.topContributorShare * 100"></div></div>
+            <span class="health-value">
+              {{ percent(health.topContributorShare) }} of commits
+              <span class="muted" *ngIf="health.topContributorShare > 0.5">· concentrated</span>
+            </span>
+          </div>
+
+          <div class="health-item">
+            <span class="label">Open pull requests</span>
+            <span class="health-big">{{ health.openPullRequests }}</span>
+            <span class="health-value muted" *ngIf="health.oldestOpenPullRequestUtc">
+              oldest {{ relative(health.oldestOpenPullRequestUtc) }}
+            </span>
+          </div>
+
+          <div class="health-item">
+            <span class="label">Last commit</span>
+            <span class="health-big">{{ relative(health.lastCommitUtc) }}</span>
+            <span class="health-value muted">{{ date(health.lastCommitUtc) }}</span>
+          </div>
+        </div>
+      </section>
+
+      <app-chart-card title="Commit trends" subtitle="Commits per day" [height]="250"
+                      [isEmpty]="!hasCommitData" emptyHint="No commits in the sync window.">
+        <app-line-chart [labels]="commitLabels" [series]="commitSeries" [height]="250" ariaLabel="Commits per day"></app-line-chart>
+      </app-chart-card>
+
+      <div class="chart-pair">
+        <app-chart-card title="PR cycle time" subtitle="Hours from open to merge, by merge date" [height]="230"
+                        [isEmpty]="!hasCycleData" emptyHint="No pull requests merged in this window.">
+          <app-line-chart [labels]="cycleLabels" [series]="cycleSeries" [height]="230" valueSuffix="h"
+                          ariaLabel="Average hours from open to merge"></app-line-chart>
+        </app-chart-card>
+
+        <app-chart-card title="Top contributors" subtitle="By commits" [height]="230"
+                        [isEmpty]="!hasContributorData">
+          <app-bar-chart [labels]="contributorLabels" [data]="contributorCounts" label="Commits"
+                         [horizontal]="true" [colorPerBar]="true" [height]="230"
+                         ariaLabel="Commits by contributor"></app-bar-chart>
+        </app-chart-card>
+      </div>
+
+      <!-- Languages -->
+      <section class="card languages" *ngIf="languages.length">
+        <h2>Languages</h2>
+        <div class="lang-bar" role="img" [attr.aria-label]="'Language distribution for ' + fullName">
+          <span *ngFor="let l of languages.slice(0, 6); let i = index"
+                class="lang-seg"
+                [style.width.%]="l.percentage"
+                [style.background]="'var(--series-' + (i + 1) + ')'"
+                [attr.title]="l.language + ' ' + l.percentage + '%'"></span>
+        </div>
+        <ul class="lang-legend">
+          <li *ngFor="let l of languages.slice(0, 6); let i = index">
+            <span class="swatch" [style.background]="'var(--series-' + (i + 1) + ')'"></span>
+            {{ l.language }}
+            <span class="muted">{{ l.percentage }}%</span>
+          </li>
+        </ul>
+      </section>
+    </ng-container>
+
+    <!-- ===== Commits ===== -->
+    <section class="card table-card" *ngIf="tab() === 'commits'">
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th scope="col">Commit</th>
+              <th scope="col">Author</th>
+              <th scope="col">Date</th>
+            </tr>
+          </thead>
+          <tbody *ngIf="commitsLoading()">
+            <tr *ngFor="let _ of skeletonRows"><td colspan="3"><div class="skeleton" style="height:30px;border-radius:8px"></div></td></tr>
+          </tbody>
+          <tbody *ngIf="!commitsLoading()">
+            <tr *ngFor="let c of commits">
+              <td class="primary">
+                <code class="sha">{{ shortSha(c.sha) }}</code>
+                <span class="commit-msg">{{ firstLine(c.message) }}</span>
+              </td>
+              <td>{{ c.contributor?.login || c.authorName }}</td>
+              <td class="nowrap">{{ relative(c.committedAt) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <app-empty-state *ngIf="!commitsLoading() && commits.length === 0"
+                       icon="commit" title="No commits" message="Nothing was ingested in the sync window."></app-empty-state>
+
+      <app-paginator *ngIf="commits.length" [hasNext]="commitsPage.hasNextPage" [hasPrevious]="commitsPage.hasPreviousPage"
+                     [shown]="commits.length" [loading]="commitsLoading()"
+                     (next)="nextCommits()" (previous)="prevCommits()"></app-paginator>
+    </section>
+
+    <!-- ===== Pull requests ===== -->
+    <section class="card table-card" *ngIf="tab() === 'pulls'">
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th scope="col">Pull request</th>
+              <th scope="col">Author</th>
+              <th scope="col">State</th>
+              <th scope="col">Opened</th>
+            </tr>
+          </thead>
+          <tbody *ngIf="pullsLoading()">
+            <tr *ngFor="let _ of skeletonRows"><td colspan="4"><div class="skeleton" style="height:30px;border-radius:8px"></div></td></tr>
+          </tbody>
+          <tbody *ngIf="!pullsLoading()">
+            <tr *ngFor="let p of pulls">
+              <td class="primary">
+                <span class="pr-number">#{{ p.number }}</span>
+                <span class="commit-msg">{{ p.title }}</span>
+              </td>
+              <td>{{ p.authorLogin || '—' }}</td>
+              <td><app-status-badge [label]="prLabel(p)" [tone]="prTone(p)"></app-status-badge></td>
+              <td class="nowrap">{{ date(p.createdAt) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <app-empty-state *ngIf="!pullsLoading() && pulls.length === 0"
+                       icon="pr" title="No pull requests" message="Nothing was ingested in the sync window."></app-empty-state>
+
+      <app-paginator *ngIf="pulls.length" [hasNext]="pullsPage.hasNextPage" [hasPrevious]="pullsPage.hasPreviousPage"
+                     [shown]="pulls.length" [loading]="pullsLoading()"
+                     (next)="nextPulls()" (previous)="prevPulls()"></app-paginator>
+    </section>
+
+    <!-- ===== Sync history ===== -->
+    <section class="card table-card" *ngIf="tab() === 'history'">
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th scope="col">Started</th>
+              <th scope="col">Status</th>
+              <th scope="col">Trigger</th>
+              <th scope="col" class="numeric">Commits</th>
+              <th scope="col" class="numeric">PRs</th>
+              <th scope="col" class="numeric">Duration</th>
+            </tr>
+          </thead>
+          <tbody *ngIf="runsLoading()">
+            <tr *ngFor="let _ of skeletonRows"><td colspan="6"><div class="skeleton" style="height:30px;border-radius:8px"></div></td></tr>
+          </tbody>
+          <tbody *ngIf="!runsLoading()">
+            <tr *ngFor="let r of runs">
+              <td class="primary nowrap">{{ relative(r.startedAtUtc) }}</td>
+              <td>
+                <app-status-badge [label]="r.truncated ? 'Partial' : r.status" [tone]="syncTone(r.status)"></app-status-badge>
+              </td>
+              <td>{{ r.trigger }}</td>
+              <td class="numeric">{{ r.commitsIngested }}</td>
+              <td class="numeric">{{ r.pullRequestsIngested }}</td>
+              <td class="numeric nowrap">{{ duration(r.durationMs) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <app-empty-state *ngIf="!runsLoading() && runs.length === 0"
+                       icon="refresh" title="No sync history"
+                       message="History is recorded from the first sync after this feature shipped."></app-empty-state>
+
+      <app-paginator *ngIf="runs.length" [hasNext]="runsPage.hasNextPage" [hasPrevious]="runsPage.hasPreviousPage"
+                     [shown]="runs.length" [loading]="runsLoading()"
+                     (next)="nextRuns()" (previous)="prevRuns()"></app-paginator>
+    </section>
+
+  </ng-container>
+</div>
+
+<app-edit-repository-dialog
+  *ngIf="editing() && repository"
+  [repository]="repository"
+  (close)="editing.set(false)"
+  (saved)="loadCommits(); editing.set(false)">
+</app-edit-repository-dialog>

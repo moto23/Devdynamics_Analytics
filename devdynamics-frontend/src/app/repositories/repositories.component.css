@@ -1,181 +1,170 @@
-/* ==============================================
-   CONTAINER
-=============================================== */
-.repositories-container {
-    max-width: 1100px;
-    margin: 40px auto;
-    padding: 24px 28px;
-    font-family: 'Inter', 'Segoe UI', sans-serif;
-  }
-  
-  /* ==============================================
-     TITLE
-  =============================================== */
-  h1 {
-    margin-bottom: 24px;
-    font-size: 32px;
-    font-weight: 800;
-    color: #0f172a;
-    letter-spacing: -0.5px;
-  }
-  
-  /* ==============================================
-     SEARCH
-  =============================================== */
-  .search-input {
-    width: 100%;
-    padding: 12px 16px;
-    margin-bottom: 20px;
-    border-radius: 10px;
-    border: 1px solid #e2e8f0;
-    font-size: 14px;
-    background: #ffffff;
-    color: #0f172a;
-    box-sizing: border-box;
-    transition: all 0.2s ease;
-    outline: none;
-  }
-  
-  .search-input::placeholder {
-    color: #94a3b8;
-  }
-  
-  .search-input:focus {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-  }
-  
-  /* ==============================================
-     TABLE WRAPPER
-  =============================================== */
-  .table-wrapper {
-    overflow-x: auto;
-    border-radius: 14px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
-  }
-  
-  /* ==============================================
-     TABLE
-  =============================================== */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
-  }
-  
-  /* HEADER */
-  thead {
-    background: #f8fafc;
-  }
-  
-  thead tr {
-    border-bottom: 2px solid #e2e8f0;
-  }
-  
-  th {
-    text-align: left;
-    padding: 14px 18px;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #64748b;
-  }
-  
-  /* BODY */
-  td {
-    padding: 14px 18px;
-    border-top: 1px solid #f1f5f9;
-    color: #0f172a;
-    font-size: 14px;
-  }
-  
-  td:not(.repository-name) {
-    text-align: center;
-    font-weight: 500;
-    color: #334155;
-  }
-  
-  .repository-name {
-    font-weight: 600;
-    color: #0f172a;
-  }
-  
-  /* ROW HOVER */
-  .clickable-row {
-    cursor: pointer;
-    transition: background 0.15s ease;
-  }
-  
-  .clickable-row:hover {
-    background: #f0f7ff;
-  }
-  
-  .clickable-row:hover .repository-name {
-    color: #2563eb;
-  }
-  
-  /* ==============================================
-     DARK MODE
-  =============================================== */
-  :host-context(body.dark-mode) h1 {
-    color: #e2e8f0;
-  }
-  
-  :host-context(body.dark-mode) .search-input {
-    background: #0f172a;
-    color: #e2e8f0;
-    border-color: #334155;
-  }
-  
-  :host-context(body.dark-mode) .search-input::placeholder {
-    color: #475569;
-  }
-  
-  :host-context(body.dark-mode) .search-input:focus {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
-  }
-  
-  :host-context(body.dark-mode) .table-wrapper {
-    border-color: rgba(255, 255, 255, 0.08);
-    box-shadow: none;
-  }
-  
-  :host-context(body.dark-mode) table {
-    background: rgba(255, 255, 255, 0.04);
-  }
-  
-  :host-context(body.dark-mode) thead {
-    background: rgba(255, 255, 255, 0.06);
-  }
-  
-  :host-context(body.dark-mode) thead tr {
-    border-bottom-color: rgba(255, 255, 255, 0.08);
-  }
-  
-  :host-context(body.dark-mode) th {
-    color: #64748b;
-  }
-  
-  :host-context(body.dark-mode) td {
-    color: #cbd5e1;
-    border-top-color: rgba(255, 255, 255, 0.05);
-  }
-  
-  :host-context(body.dark-mode) td:not(.repository-name) {
-    color: #94a3b8;
-  }
-  
-  :host-context(body.dark-mode) .repository-name {
-    color: #e2e8f0;
-  }
-  
-  :host-context(body.dark-mode) .clickable-row:hover {
-    background: rgba(37, 99, 235, 0.08);
-  }
-  
-  :host-context(body.dark-mode) .clickable-row:hover .repository-name {
-    color: #60a5fa;
-  }
+:host { display: block; }
+
+.page { display: flex; flex-direction: column; gap: var(--space-5); }
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.page-head h1 { font-size: clamp(24px, 3vw, 30px); }
+.page-sub { font-size: 14px; margin-top: 4px; }
+
+.head-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+/* ---------- Toolbar ---------- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  flex-wrap: wrap;
+}
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 220px;
+  height: 38px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.search-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.search-field app-icon { color: var(--text-muted); flex: none; }
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+}
+.search-input::placeholder { color: var(--text-muted); }
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.toggle input { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+
+.admin-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  margin-top: calc(var(--space-3) * -1);
+}
+.admin-hint app-icon { color: var(--text-muted); }
+
+/* ---------- Table ---------- */
+.table-card { padding: var(--space-2) var(--space-2) var(--space-4); }
+
+.repo-cell { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+
+.avatar {
+  width: 28px; height: 28px;
+  flex: none;
+  border-radius: 8px;
+  background: var(--surface-3);
+  object-fit: cover;
+}
+
+.repo-text { display: flex; flex-direction: column; min-width: 0; }
+
+.repo-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pin-mark { color: var(--accent); }
+
+.repo-sub {
+  font-size: 12px;
+  max-width: 42ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.repo-link {
+  display: inline-flex;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+tr:hover .repo-link, tr:focus-within .repo-link { opacity: 1; }
+.repo-link:hover { color: var(--accent); }
+
+.lang {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.freshness { font-size: 13px; white-space: nowrap; }
+.freshness[data-tone='good'] { color: var(--text-secondary); }
+.freshness[data-tone='warning'] { color: var(--status-warning); }
+.freshness[data-tone='neutral'] { color: var(--text-muted); }
+
+.ml { margin-left: 6px; }
+
+.actions-cell { width: 48px; text-align: right; }
+.dots { font-size: 17px; line-height: 1; }
+
+/* ---------- Notice ---------- */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--status-critical) 40%, var(--border));
+  background: var(--surface-1);
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.notice app-icon { color: var(--status-critical); margin-top: 2px; flex: none; }
+.retry { margin-left: var(--space-3); }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1023px) {
+  /* Secondary counts drop first; identity and status stay. */
+  table.data th:nth-child(4), table.data td:nth-child(4),
+  table.data th:nth-child(5), table.data td:nth-child(5) { display: none; }
+}
+
+@media (max-width: 767px) {
+  table.data th:nth-child(2), table.data td:nth-child(2),
+  table.data th:nth-child(8), table.data td:nth-child(8),
+  table.data th:nth-child(10), table.data td:nth-child(10) { display: none; }
+
+  .repo-sub { display: none; }
+  .head-actions { width: 100%; }
+  .head-actions .btn { flex: 1; }
+}

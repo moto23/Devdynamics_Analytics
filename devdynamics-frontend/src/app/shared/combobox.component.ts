@@ -239,22 +239,34 @@ export class ComboboxComponent {
     this.open.set(false);
   }
 
-  /** Measures from the trigger, flipping upward when there is no room below. */
+  /**
+   * Places the menu, then corrects once it has rendered.
+   *
+   * The provisional pass uses an estimate so there is no visible jump; the
+   * correction uses the real height, because an estimate that disagrees with
+   * the rendered size is exactly how a menu ends up clipped.
+   */
   private position() {
     const rect = this.rootRef.nativeElement.getBoundingClientRect();
-    const menuHeight = Math.min(320, 56 + this.options.length * 34);
-    const spaceBelow = window.innerHeight - rect.bottom;
-
     const width = Math.max(rect.width, 220);
-    const left = Math.min(rect.left, window.innerWidth - width - 8);
 
     this.menuWidth.set(width);
-    this.menuLeft.set(Math.max(8, left));
-    this.menuTop.set(
-      spaceBelow < menuHeight && rect.top > menuHeight
-        ? rect.top - menuHeight - 6
-        : rect.bottom + 6
-    );
+    this.menuLeft.set(Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)));
+    this.menuTop.set(rect.bottom + 6);
+
+    requestAnimationFrame(() => {
+      const menu = document.querySelector<HTMLElement>('.combo-menu');
+      if (!menu) return;
+
+      const height = menu.getBoundingClientRect().height;
+      const margin = 8;
+
+      this.menuTop.set(
+        rect.bottom + 6 + height > window.innerHeight - margin
+          ? Math.max(margin, rect.top - height - 6)
+          : rect.bottom + 6
+      );
+    });
   }
 
   choose(option: ComboOption) {

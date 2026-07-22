@@ -8,18 +8,97 @@ export interface TrackedRepository {
   owner: string;
   name: string;
   provider: string;
+  description: string | null;
   language: string | null;
   htmlUrl: string | null;
   starCount: number;
+  forkCount: number;
+  openIssueCount: number;
   isActive: boolean;
   isDemoData: boolean;
+  isPinned: boolean;
+  nickname: string | null;
+  notes: string | null;
+  syncIntervalMinutes: number | null;
   syncStatus: string;
   lastSyncCompletedAtUtc: string | null;
   lastSyncError: string | null;
+  lastSyncDurationMs: number | null;
   totalCommits: number;
   totalPullRequests: number;
   totalContributors: number;
 }
+
+export interface RepositoryHealth {
+  fullName: string;
+  commits: number;
+  pullRequests: number;
+  mergedPullRequests: number;
+  openPullRequests: number;
+  mergeRate: number;
+  medianCycleHours: number;
+  p95CycleHours: number;
+  activeDays: number;
+  commitsPerWeek: number;
+  contributors: number;
+  topContributorShare: number;
+  oldestOpenPullRequestUtc: string | null;
+  lastCommitUtc: string | null;
+}
+
+export interface LanguageSlice {
+  language: string;
+  bytes: number;
+  percentage: number;
+}
+
+export interface CommitRow {
+  sha: string;
+  message: string;
+  committedAt: string;
+  authorName: string;
+  contributor: { login: string; avatarUrl: string | null } | null;
+  repository: { fullName: string } | null;
+}
+
+export interface PullRequestRow {
+  number: number;
+  title: string;
+  state: string;
+  createdAt: string;
+  mergedAt: string | null;
+  authorLogin: string | null;
+  repository: { fullName: string } | null;
+}
+
+export interface SyncRunRow {
+  startedAtUtc: string;
+  completedAtUtc: string | null;
+  status: string;
+  trigger: string;
+  commitsIngested: number;
+  pullRequestsIngested: number;
+  contributorsAdded: number;
+  truncated: boolean;
+  durationMs: number;
+  error: string | null;
+}
+
+export interface MutationResult {
+  success: boolean;
+  message: string;
+  repositoryId?: number | null;
+  fullName?: string | null;
+  syncStatus?: string | null;
+}
+
+const REPOSITORY_FIELDS = `
+  id fullName owner name provider description language htmlUrl
+  starCount forkCount openIssueCount
+  isActive isDemoData isPinned nickname notes syncIntervalMinutes
+  syncStatus lastSyncCompletedAtUtc lastSyncError lastSyncDurationMs
+  totalCommits totalPullRequests totalContributors
+`;
 
 export interface SummaryStats {
   totalCommits: number;
@@ -120,11 +199,7 @@ export class GraphqlService {
     return this.apollo.query<any>({
       query: gql`
         query ($includeInactive: Boolean!) {
-          trackedRepositories(includeInactive: $includeInactive) {
-            id fullName owner name provider language htmlUrl starCount
-            isActive isDemoData syncStatus lastSyncCompletedAtUtc lastSyncError
-            totalCommits totalPullRequests totalContributors
-          }
+          trackedRepositories(includeInactive: $includeInactive) { ${REPOSITORY_FIELDS} }
         }
       `,
       variables: { includeInactive },
@@ -210,4 +285,220 @@ export class GraphqlService {
       }
     }).pipe(map(res => res.data?.contributors ?? EMPTY_CONNECTION));
   }
+
+  // =====================================================================
+  // Repository registry
+  // =====================================================================
+
+  /** Paginated, searchable, sortable registry listing. */
+  getRepositoriesPage(options: {
+    includeInactive?: boolean;
+    search?: string | null;
+    sortBy?: string | null;
+    descending?: boolean;
+    after?: string | null;
+    first?: number;
+  } = {}): Observable<Connection<TrackedRepository>> {
+    return this.apollo.query<any>({
+      query: gql`
+        query ($includeInactive: Boolean!, $search: String, $sortBy: String,
+               $descending: Boolean!, $after: String, $first: Int) {
+          repositories(includeInactive: $includeInactive, search: $search, sortBy: $sortBy,
+                       descending: $descending, after: $after, first: $first) {
+            items { ${REPOSITORY_FIELDS} }
+            pageInfo { hasNextPage hasPreviousPage endCursor totalCount }
+          }
+        }
+      `,
+      variables: {
+        includeInactive: options.includeInactive ?? true,
+        search: options.search ?? null,
+        sortBy: options.sortBy ?? null,
+        descending: options.descending ?? true,
+        after: options.after ?? null,
+        first: options.first ?? 25
+      },
+      fetchPolicy: 'network-only'
+    }).pipe(map(res => res.data?.repositories ?? EMPTY_CONNECTION));
+  }
+
+  getRepositoryHealth(fullName: string, f: Partial<AnalyticsFilters> = {}): Observable<RepositoryHealth | null> {
+    return this.apollo.query<any>({
+      query: gql`
+        query ($fullName: String!, $startDate: DateTime, $endDate: DateTime, $excludeBots: Boolean!) {
+          repositoryHealth(fullName: $fullName, startDate: $startDate, endDate: $endDate, excludeBots: $excludeBots) {
+            fullName commits pullRequests mergedPullRequests openPullRequests
+            mergeRate medianCycleHours p95CycleHours activeDays commitsPerWeek
+            contributors topContributorShare oldestOpenPullRequestUtc lastCommitUtc
+          }
+        }
+      `,
+      variables: {
+        fullName,
+        startDate: f.startDate ?? null,
+        endDate: f.endDate ?? null,
+        excludeBots: f.excludeBots ?? false
+      }
+    }).pipe(map(res => res.data?.repositoryHealth ?? null));
+  }
+
+  getLanguageDistribution(repository: string | null): Observable<LanguageSlice[]> {
+    return this.apollo.query<any>({
+      query: gql`
+        query ($repository: String) {
+          languageDistribution(repository: $repository) { language bytes percentage }
+        }
+      `,
+      variables: { repository }
+    }).pipe(map(res => res.data?.languageDistribution ?? []));
+  }
+
+  getCommitsPage(f: AnalyticsFilters, after: string | null = null, first = 15): Observable<Connection<CommitRow>> {
+    return this.apollo.query<any>({
+      query: gql`
+        query ($startDate: DateTime, $endDate: DateTime, $contributor: String, $repository: String,
+               $excludeBots: Boolean!, $after: String, $first: Int) {
+          commits(startDate: $startDate, endDate: $endDate, contributor: $contributor,
+                  repository: $repository, excludeBots: $excludeBots, after: $after, first: $first) {
+            items {
+              sha message committedAt authorName
+              contributor { login avatarUrl }
+              repository { fullName }
+            }
+            pageInfo { hasNextPage hasPreviousPage endCursor totalCount }
+          }
+        }
+      `,
+      variables: { ...this.vars(f), after, first }
+    }).pipe(map(res => res.data?.commits ?? EMPTY_CONNECTION));
+  }
+
+  getPullRequestsPage(
+    f: AnalyticsFilters,
+    state: string | null = null,
+    after: string | null = null,
+    first = 15
+  ): Observable<Connection<PullRequestRow>> {
+    return this.apollo.query<any>({
+      query: gql`
+        query ($startDate: DateTime, $endDate: DateTime, $contributor: String, $repository: String,
+               $excludeBots: Boolean!, $state: String, $after: String, $first: Int) {
+          pullRequests(startDate: $startDate, endDate: $endDate, contributor: $contributor,
+                       repository: $repository, excludeBots: $excludeBots, state: $state,
+                       after: $after, first: $first) {
+            items {
+              number title state createdAt mergedAt authorLogin
+              repository { fullName }
+            }
+            pageInfo { hasNextPage hasPreviousPage endCursor totalCount }
+          }
+        }
+      `,
+      variables: { ...this.vars(f), state, after, first }
+    }).pipe(map(res => res.data?.pullRequests ?? EMPTY_CONNECTION));
+  }
+
+  getSyncRuns(repositoryId: number, after: string | null = null, first = 10): Observable<Connection<SyncRunRow>> {
+    return this.apollo.query<any>({
+      query: gql`
+        query ($repositoryId: Int!, $after: String, $first: Int) {
+          syncRuns(repositoryId: $repositoryId, after: $after, first: $first) {
+            items {
+              startedAtUtc completedAtUtc status trigger
+              commitsIngested pullRequestsIngested contributorsAdded
+              truncated durationMs error
+            }
+            pageInfo { hasNextPage hasPreviousPage endCursor totalCount }
+          }
+        }
+      `,
+      variables: { repositoryId, after, first },
+      fetchPolicy: 'network-only'
+    }).pipe(map(res => res.data?.syncRuns ?? EMPTY_CONNECTION));
+  }
+
+  // =====================================================================
+  // Management mutations
+  //
+  // Every one requires the admin key, supplied through the caller's context.
+  // The UI hides these actions until a key is present, so an unauthorised
+  // call should not be reachable from the interface.
+  // =====================================================================
+
+  addRepository(fullName: string, context: Record<string, unknown>): Observable<MutationResult> {
+    return this.apollo.mutate<any>({
+      mutation: gql`
+        mutation ($fullName: String!) {
+          addRepository(fullName: $fullName) { success message repositoryId fullName syncStatus }
+        }
+      `,
+      variables: { fullName },
+      context
+    }).pipe(map(res => res.data?.addRepository ?? failedMutation()));
+  }
+
+  updateRepository(
+    id: number,
+    changes: { nickname?: string | null; notes?: string | null; isPinned?: boolean | null; syncIntervalMinutes?: number | null },
+    context: Record<string, unknown>
+  ): Observable<MutationResult> {
+    return this.apollo.mutate<any>({
+      mutation: gql`
+        mutation ($id: Int!, $nickname: String, $notes: String, $isPinned: Boolean, $syncIntervalMinutes: Int) {
+          updateRepository(id: $id, nickname: $nickname, notes: $notes,
+                           isPinned: $isPinned, syncIntervalMinutes: $syncIntervalMinutes) {
+            success message
+          }
+        }
+      `,
+      variables: {
+        id,
+        nickname: changes.nickname ?? null,
+        notes: changes.notes ?? null,
+        isPinned: changes.isPinned ?? null,
+        syncIntervalMinutes: changes.syncIntervalMinutes ?? null
+      },
+      context
+    }).pipe(map(res => res.data?.updateRepository ?? failedMutation()));
+  }
+
+  removeRepository(id: number, context: Record<string, unknown>): Observable<MutationResult> {
+    return this.apollo.mutate<any>({
+      mutation: gql` mutation ($id: Int!) { removeRepository(id: $id) { success message } } `,
+      variables: { id },
+      context
+    }).pipe(map(res => res.data?.removeRepository ?? failedMutation()));
+  }
+
+  setRepositoryActive(id: number, isActive: boolean, context: Record<string, unknown>): Observable<MutationResult> {
+    return this.apollo.mutate<any>({
+      mutation: gql`
+        mutation ($id: Int!, $isActive: Boolean!) {
+          setRepositoryActive(id: $id, isActive: $isActive) { success message }
+        }
+      `,
+      variables: { id, isActive },
+      context
+    }).pipe(map(res => res.data?.setRepositoryActive ?? failedMutation()));
+  }
+
+  syncRepository(id: number, context: Record<string, unknown>): Observable<MutationResult> {
+    return this.apollo.mutate<any>({
+      mutation: gql` mutation ($id: Int!) { syncRepository(id: $id) { success message } } `,
+      variables: { id },
+      context
+    }).pipe(map(res => res.data?.syncRepository ?? failedMutation()));
+  }
+
+  syncAllRepositories(context: Record<string, unknown>): Observable<MutationResult> {
+    return this.apollo.mutate<any>({
+      mutation: gql` mutation { syncAllRepositories { success message } } `,
+      context
+    }).pipe(map(res => res.data?.syncAllRepositories ?? failedMutation()));
+  }
+}
+
+/** Used when a mutation returns no payload, so callers never see undefined. */
+function failedMutation(): MutationResult {
+  return { success: false, message: 'The request did not complete.' };
 }

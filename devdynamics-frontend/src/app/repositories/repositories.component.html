@@ -1,64 +1,254 @@
-<div class="repositories-container">
+<div class="page">
 
-  <h1>Tracked Repositories</h1>
+  <header class="page-head">
+    <div>
+      <h1>Repositories</h1>
+      <p class="page-sub muted">
+        {{ pageInfo.totalCount ?? 0 }} tracked · analytics follow whichever are active
+      </p>
+    </div>
 
-  <input
-    type="text"
-    placeholder="Search by name or language…"
-    [(ngModel)]="searchText"
-    class="search-input"
-  />
+    <!-- Management actions appear only once a valid admin key is present, so
+         nothing is shown that would immediately fail. -->
+    <div class="head-actions" *ngIf="admin.isAuthenticated()">
+      <button type="button" class="btn" (click)="syncAll()">
+        <app-icon name="refresh" [size]="15"></app-icon>
+        Sync all
+      </button>
+      <button type="button" class="btn btn-primary" (click)="openDialog('add')">
+        <app-icon name="check" [size]="15"></app-icon>
+        Track repository
+      </button>
+    </div>
+  </header>
 
-  <section *ngIf="loading"><p>Loading repositories…</p></section>
-  <section *ngIf="errorMessage"><p class="error-text">{{ errorMessage }}</p></section>
+  <!-- Toolbar -->
+  <section class="card-glass toolbar" aria-label="Repository filters">
+    <div class="search-field">
+      <app-icon name="search" [size]="15"></app-icon>
+      <input
+        type="search"
+        class="search-input"
+        placeholder="Search by name, nickname or language…"
+        [(ngModel)]="search"
+        (ngModelChange)="onSearchInput()"
+        aria-label="Search repositories" />
+    </div>
 
-  <section *ngIf="!loading && !errorMessage && repositories.length === 0">
-    <p>No repositories are tracked yet.</p>
+    <label class="toggle">
+      <input type="checkbox" [(ngModel)]="includeInactive" (change)="reload(true)" />
+      <span>Show disabled</span>
+    </label>
+
+    <button type="button" class="btn btn-sm" (click)="reload()" [disabled]="loading()">
+      <app-icon name="refresh" [size]="14"></app-icon>
+      Refresh
+    </button>
   </section>
 
-  <div class="table-wrapper" *ngIf="!loading && filtered.length > 0">
-    <table>
-      <thead>
-        <tr>
-          <th>Repository</th>
-          <th>Language</th>
-          <th>Commits</th>
-          <th>PRs</th>
-          <th>Contributors</th>
-          <th>Status</th>
-          <th>Last Synced</th>
-        </tr>
-      </thead>
+  <p class="admin-hint muted" *ngIf="!admin.isAuthenticated()">
+    <app-icon name="alert" [size]="14"></app-icon>
+    Viewing in read-only mode. Unlock Administration in
+    <a routerLinkActive="x" href="/settings">Settings</a> to add, edit or sync repositories.
+  </p>
 
-      <tbody>
-        <tr *ngFor="let r of filtered"
-            class="clickable-row"
-            [class.inactive-row]="!r.isActive"
-            (click)="viewAnalytics(r)">
-
-          <td class="repository-name">
-            {{ r.fullName }}
-            <span class="badge" *ngIf="r.isDemoData">demo</span>
-            <span class="badge" *ngIf="!r.isActive">disabled</span>
-          </td>
-
-          <td>{{ r.language || '—' }}</td>
-          <td>{{ r.totalCommits }}</td>
-          <td>{{ r.totalPullRequests }}</td>
-          <td>{{ r.totalContributors }}</td>
-
-          <td>
-            <span [class]="statusClass(r.syncStatus)">{{ r.syncStatus }}</span>
-          </td>
-
-          <td>
-            {{ r.lastSyncCompletedAtUtc
-                ? (r.lastSyncCompletedAtUtc | date:'short')
-                : 'never' }}
-          </td>
-        </tr>
-      </tbody>
-    </table>
+  <!-- Error -->
+  <div class="notice notice-error" *ngIf="errorMessage()">
+    <app-icon name="alert" [size]="16"></app-icon>
+    <div>
+      {{ errorMessage() }}
+      <button type="button" class="btn btn-sm retry" (click)="reload()">Retry</button>
+    </div>
   </div>
 
+  <!-- Table -->
+  <section class="card table-card" *ngIf="!errorMessage()">
+    <div class="table-wrap">
+      <table class="data">
+        <thead>
+          <tr>
+            <th scope="col">Repository</th>
+            <th scope="col">Language</th>
+            <th scope="col" class="numeric">
+              <app-sort-header [active]="sortBy === 'stars'" [descending]="descending" (toggle)="toggleSort('stars')">Stars</app-sort-header>
+            </th>
+            <th scope="col" class="numeric">Forks</th>
+            <th scope="col" class="numeric">Issues</th>
+            <th scope="col" class="numeric">
+              <app-sort-header [active]="sortBy === 'commits'" [descending]="descending" (toggle)="toggleSort('commits')">Commits</app-sort-header>
+            </th>
+            <th scope="col" class="numeric">
+              <app-sort-header [active]="sortBy === 'pullRequests'" [descending]="descending" (toggle)="toggleSort('pullRequests')">PRs</app-sort-header>
+            </th>
+            <th scope="col" class="numeric">
+              <app-sort-header [active]="sortBy === 'contributors'" [descending]="descending" (toggle)="toggleSort('contributors')">People</app-sort-header>
+            </th>
+            <th scope="col">Sync</th>
+            <th scope="col">
+              <app-sort-header [active]="sortBy === 'lastSynced'" [descending]="descending" (toggle)="toggleSort('lastSynced')">Last synced</app-sort-header>
+            </th>
+            <th scope="col"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+
+        <tbody *ngIf="loading()">
+          <tr *ngFor="let _ of skeletonRows">
+            <td colspan="11"><div class="skeleton" style="height:34px;border-radius:8px"></div></td>
+          </tr>
+        </tbody>
+
+        <tbody *ngIf="!loading()">
+          <tr
+            *ngFor="let r of repositories"
+            class="clickable"
+            [class.dimmed]="!r.isActive"
+            tabindex="0"
+            (click)="view(r)"
+            (keydown.enter)="view(r)">
+
+            <td class="primary">
+              <div class="repo-cell">
+                <img class="avatar" [src]="avatarUrl(r)" [alt]="r.owner + ' avatar'" loading="lazy" width="28" height="28" />
+                <div class="repo-text">
+                  <span class="repo-name">
+                    <app-icon *ngIf="r.isPinned" name="check" [size]="12" class="pin-mark"></app-icon>
+                    {{ displayName(r) }}
+                  </span>
+                  <span class="repo-sub muted">
+                    {{ r.nickname ? r.fullName : (r.description || '—') }}
+                  </span>
+                </div>
+                <a
+                  class="repo-link"
+                  *ngIf="r.htmlUrl"
+                  [href]="r.htmlUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  (click)="$event.stopPropagation()"
+                  [attr.aria-label]="'Open ' + r.fullName + ' on GitHub'">
+                  <app-icon name="external" [size]="13"></app-icon>
+                </a>
+              </div>
+            </td>
+
+            <td>
+              <span class="lang" *ngIf="r.language">{{ r.language }}</span>
+              <span class="muted" *ngIf="!r.language">—</span>
+            </td>
+
+            <td class="numeric">{{ r.starCount.toLocaleString() }}</td>
+            <td class="numeric">{{ r.forkCount.toLocaleString() }}</td>
+            <td class="numeric">{{ r.openIssueCount.toLocaleString() }}</td>
+            <td class="numeric">{{ r.totalCommits.toLocaleString() }}</td>
+            <td class="numeric">{{ r.totalPullRequests.toLocaleString() }}</td>
+            <td class="numeric">{{ r.totalContributors.toLocaleString() }}</td>
+
+            <td>
+              <app-status-badge [label]="syncLabel(r.syncStatus)" [tone]="syncTone(r.syncStatus)"></app-status-badge>
+              <app-status-badge *ngIf="!r.isActive" label="Disabled" tone="neutral" class="ml"></app-status-badge>
+            </td>
+
+            <td>
+              <span class="freshness" [attr.data-tone]="freshnessTone(r)">{{ relative(r.lastSyncCompletedAtUtc) }}</span>
+            </td>
+
+            <td class="actions-cell">
+              <button
+                type="button"
+                class="btn btn-ghost btn-icon row-actions"
+                *ngIf="admin.isAuthenticated()"
+                (click)="openMenu($event, r)"
+                [attr.aria-expanded]="openMenuId() === r.id"
+                aria-haspopup="menu"
+                [attr.aria-label]="'Actions for ' + r.fullName">
+                <span class="dots">⋮</span>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <app-empty-state
+      *ngIf="isEmpty"
+      icon="repo"
+      title="No repositories match"
+      [message]="search ? 'Try a different search term.' : 'Track a repository to start collecting analytics.'">
+      <button type="button" class="btn btn-primary" *ngIf="admin.isAuthenticated() && !search" (click)="openDialog('add')">
+        Track a repository
+      </button>
+    </app-empty-state>
+
+    <app-paginator
+      *ngIf="!isEmpty"
+      [hasNext]="pageInfo.hasNextPage"
+      [hasPrevious]="pageInfo.hasPreviousPage"
+      [total]="pageInfo.totalCount"
+      [shown]="repositories.length"
+      [loading]="loading()"
+      (next)="nextPage()"
+      (previous)="previousPage()">
+    </app-paginator>
+  </section>
 </div>
+
+<!-- Contextual actions -->
+<div
+  class="menu-panel"
+  *ngIf="openMenuId() !== null && activeRepository"
+  role="menu"
+  [style.top.px]="menuTop()"
+  [style.left.px]="menuLeft()"
+  (click)="$event.stopPropagation()">
+
+  <button type="button" class="menu-item" role="menuitem" (click)="view(activeRepository!)">
+    <app-icon name="chart" [size]="15"></app-icon> View details
+  </button>
+  <button type="button" class="menu-item" role="menuitem" (click)="viewDashboard(activeRepository!)">
+    <app-icon name="grid" [size]="15"></app-icon> Open in dashboard
+  </button>
+
+  <div class="menu-separator"></div>
+
+  <button type="button" class="menu-item" role="menuitem" (click)="syncNow(activeRepository!)" [disabled]="!activeRepository!.isActive">
+    <app-icon name="refresh" [size]="15"></app-icon> Sync now
+  </button>
+  <button type="button" class="menu-item" role="menuitem" (click)="openDialog('edit', activeRepository!)">
+    <app-icon name="settings" [size]="15"></app-icon> Edit
+  </button>
+  <button type="button" class="menu-item" role="menuitem" (click)="togglePin(activeRepository!)">
+    <app-icon name="check" [size]="15"></app-icon>
+    {{ activeRepository!.isPinned ? 'Unpin' : 'Pin to top' }}
+  </button>
+  <button type="button" class="menu-item" role="menuitem" (click)="toggleActive(activeRepository!)">
+    <app-icon name="clock" [size]="15"></app-icon>
+    {{ activeRepository!.isActive ? 'Disable tracking' : 'Enable tracking' }}
+  </button>
+
+  <div class="menu-separator"></div>
+
+  <button type="button" class="menu-item danger" role="menuitem" (click)="openDialog('remove', activeRepository!)">
+    <app-icon name="close" [size]="15"></app-icon> Remove
+  </button>
+</div>
+
+<!-- Dialogs -->
+<app-add-repository-dialog
+  *ngIf="dialog() === 'add'"
+  (close)="closeDialog()"
+  (added)="reload(true)">
+</app-add-repository-dialog>
+
+<app-edit-repository-dialog
+  *ngIf="dialog() === 'edit' && activeRepository"
+  [repository]="activeRepository"
+  (close)="closeDialog()"
+  (saved)="reload()">
+</app-edit-repository-dialog>
+
+<app-remove-repository-dialog
+  *ngIf="dialog() === 'remove' && activeRepository"
+  [repository]="activeRepository"
+  (close)="closeDialog()"
+  (removed)="reload(true)">
+</app-remove-repository-dialog>
