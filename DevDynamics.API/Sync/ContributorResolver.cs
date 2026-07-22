@@ -82,14 +82,24 @@ public class ContributorResolver(AppDbContext context, string providerKey)
         }
 
         // Identity is the external id, so a changed login is an update, never a
-        // second row.
+        // second row. Fields absent on an earlier sync are backfilled here:
+        // contributors first seen through a pull request carry no display name,
+        // and pick one up the first time they appear as a commit author.
         foreach (var (externalId, record) in distinct)
         {
-            if (_cache.TryGetValue(externalId, out var contributor)
-                && !string.Equals(contributor.Login, record.Login, StringComparison.Ordinal))
+            if (!_cache.TryGetValue(externalId, out var contributor))
+            {
+                continue;
+            }
+
+            if (!string.Equals(contributor.Login, record.Login, StringComparison.Ordinal))
             {
                 contributor.Login = record.Login;
             }
+
+            contributor.Name ??= record.Name;
+            contributor.AvatarUrl ??= record.AvatarUrl;
+            contributor.HtmlUrl ??= record.HtmlUrl;
         }
 
         return _cache;

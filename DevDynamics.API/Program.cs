@@ -9,22 +9,22 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // =========================
-// Services
-// =========================
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-// =========================
 // Database provider
 // =========================
 // Production runs on Azure SQL (SQL Server). The connection string arrives via
 // the ConnectionStrings__Default environment variable and is never committed.
 //
-// SQLite remains as a temporary fallback purely so the service keeps serving
-// while the SQL Server connection string is being configured. It is scheduled
-// for removal once GitHub ingestion lands.
+// SQLite remains as a fallback so the service keeps serving if no SQL Server
+// connection string is configured.
 var connectionString = builder.Configuration.GetConnectionString("Default");
 var providerKind = DatabaseProvider.Detect(connectionString);
+
+builder.Services.Configure<DatabaseOptions>(
+    builder.Configuration.GetSection(DatabaseOptions.SectionName));
+
+var databaseOptions = builder.Configuration
+    .GetSection(DatabaseOptions.SectionName)
+    .Get<DatabaseOptions>() ?? new DatabaseOptions();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
@@ -36,11 +36,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
             // a transient fault. Retry so the first request after an idle period
             // waits for the resume instead of failing.
             sql.EnableRetryOnFailure(
-                maxRetryCount: 6,
-                maxRetryDelay: TimeSpan.FromSeconds(20),
+                maxRetryCount: databaseOptions.MaxRetryCount,
+                maxRetryDelay: TimeSpan.FromSeconds(databaseOptions.MaxRetryDelaySeconds),
                 errorNumbersToAdd: null);
 
-            sql.CommandTimeout(60);
+            sql.CommandTimeout(databaseOptions.CommandTimeoutSeconds);
         });
     }
     else
@@ -113,11 +113,8 @@ var app = builder.Build();
 // =========================
 // Middleware
 // =========================
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// No Swagger: this service exposes a GraphQL API plus a handful of operational
+// endpoints, and GraphQL is self-describing through introspection.
 
 app.UseCors("AllowFrontend");
 
@@ -171,70 +168,6 @@ app.MapGet("/db-info", async (AppDbContext db) =>
     return Results.Ok(info);
 });
 
-// Network reachability diagnostic. Answers the two questions that a hanging
-// database connection cannot: what public IP does this service egress from
-// (that is the address the SQL firewall must allow), and can it open a TCP
-// socket to the database host at all. Fails fast rather than retrying, so a
-// blocked route is reported in seconds instead of minutes.
-app.MapGet("/net-info", async (AppDbContext db) =>
-{
-    var result = new Dictionary<string, object?>();
-
-    using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-    try
-    {
-        result["egressIp"] = (await http.GetStringAsync("https://api.ipify.org")).Trim();
-    }
-    catch (Exception ex)
-    {
-        result["egressIp"] = $"lookup failed: {ex.GetType().Name}";
-    }
-
-    // Parse host and port out of the configured data source, e.g.
-    // "tcp:server.database.windows.net,1433".
-    var dataSource = db.Database.GetDbConnection().DataSource ?? string.Empty;
-    var hostPart = dataSource.Replace("tcp:", string.Empty, StringComparison.OrdinalIgnoreCase);
-    var pieces = hostPart.Split(',');
-    var host = pieces[0];
-    var port = pieces.Length > 1 && int.TryParse(pieces[1], out var p) ? p : 1433;
-
-    result["sqlHost"] = host;
-    result["sqlPort"] = port;
-
-    var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-    try
-    {
-        using var tcp = new System.Net.Sockets.TcpClient();
-        var connectTask = tcp.ConnectAsync(host, port);
-        var completed = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(10)));
-
-        stopwatch.Stop();
-
-        if (completed == connectTask && tcp.Connected)
-        {
-            result["tcpReachable"] = true;
-            result["tcpNote"] = "TCP handshake succeeded; the SQL firewall permits this egress IP.";
-        }
-        else
-        {
-            result["tcpReachable"] = false;
-            result["tcpNote"] = "Timed out with no response. Typical of a firewall silently dropping packets: "
-                                + "add the egressIp above to the Azure SQL firewall.";
-        }
-
-        result["tcpElapsedMs"] = stopwatch.ElapsedMilliseconds;
-    }
-    catch (Exception ex)
-    {
-        stopwatch.Stop();
-        result["tcpReachable"] = false;
-        result["tcpError"] = ex.GetType().Name;
-        result["tcpElapsedMs"] = stopwatch.ElapsedMilliseconds;
-    }
-
-    return Results.Ok(result);
-});
-
 // Strips anything credential-shaped out of diagnostic text.
 static string Scrub(string message) => System.Text.RegularExpressions.Regex.Replace(
     message,
@@ -271,7 +204,7 @@ using (var scope = app.Services.CreateScope())
             // longer than the DbContext retry budget. Waking it explicitly before
             // migrating avoids starting up with no schema applied, which would
             // otherwise leave every query failing until the next restart.
-            await WaitForDatabaseAsync(dbContext, logger);
+            await WaitForDatabaseAsync(dbContext, logger, databaseOptions);
 
             // Migrations are authored for SQL Server, which is the real target.
             dbContext.Database.Migrate();
@@ -314,9 +247,17 @@ app.Run($"http://0.0.0.0:{port}");
 // Polls until the database accepts a connection. Azure SQL serverless reports
 // error 40613 ("not currently available") while resuming from auto-pause, which
 // can outlast the DbContext's own retry budget.
-static async Task WaitForDatabaseAsync(AppDbContext dbContext, ILogger logger)
+static async Task WaitForDatabaseAsync(
+    AppDbContext dbContext,
+    ILogger logger,
+    DatabaseOptions options)
 {
-    const int maxAttempts = 12;
+    var maxAttempts = options.StartupWaitAttempts;
+
+    if (maxAttempts <= 0)
+    {
+        return;
+    }
 
     for (var attempt = 1; attempt <= maxAttempts; attempt++)
     {
@@ -339,7 +280,7 @@ static async Task WaitForDatabaseAsync(AppDbContext dbContext, ILogger logger)
                 attempt, maxAttempts, ex.Message);
         }
 
-        await Task.Delay(TimeSpan.FromSeconds(10));
+        await Task.Delay(TimeSpan.FromSeconds(options.StartupWaitIntervalSeconds));
     }
 
     logger.LogWarning("Database did not become available within the startup window.");

@@ -19,10 +19,11 @@ public class GitHubProvider : ISourceControlProvider
     private readonly GitHubOptions _options;
     private readonly ILogger<GitHubProvider> _logger;
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
+    /// <summary>Matches the Commit.Message column width.</summary>
+    private const int MaxMessageLength = 1000;
+
+    /// <summary>Matches the PullRequest.Title column width.</summary>
+    private const int MaxTitleLength = 500;
 
     public string ProviderKey => "GitHub";
 
@@ -118,13 +119,19 @@ public class GitHubProvider : ISourceControlProvider
                     ? parsed.ToUniversalTime()
                     : DateTime.UtcNow;
 
+            var gitAuthorName = GetString(authorNode, "name") ?? "unknown";
+
             yield return new CommitRecord(
                 Sha: GetString(element, "sha") ?? string.Empty,
-                AuthorName: GetString(authorNode, "name") ?? "unknown",
+                AuthorName: gitAuthorName,
                 AuthorEmail: GetString(authorNode, "email"),
-                Message: Truncate(GetString(commit, "message") ?? string.Empty, 1000),
+                Message: Truncate(GetString(commit, "message") ?? string.Empty, MaxMessageLength),
                 CommittedAt: committedAt,
-                Author: ReadContributor(element, "author"));
+                // The commit list carries the git author's display name, so the
+                // contributor gets a human-readable name without the extra
+                // /users/{login} request per contributor that would otherwise
+                // be needed.
+                Author: ReadContributor(element, "author", gitAuthorName));
         }
     }
 
@@ -158,7 +165,7 @@ public class GitHubProvider : ISourceControlProvider
             yield return new PullRequestRecord(
                 ExternalId: GetString(element, "id") ?? string.Empty,
                 Number: GetInt(element, "number") ?? 0,
-                Title: Truncate(GetString(element, "title") ?? string.Empty, 500),
+                Title: Truncate(GetString(element, "title") ?? string.Empty, MaxTitleLength),
                 State: GetString(element, "state") ?? "unknown",
                 CreatedAt: GetDate(element, "created_at") ?? updatedAt,
                 UpdatedAt: updatedAt,
@@ -407,7 +414,10 @@ public class GitHubProvider : ISourceControlProvider
     // Parsing helpers
     // =====================================================================
 
-    private static ContributorRecord? ReadContributor(JsonElement parent, string propertyName)
+    private static ContributorRecord? ReadContributor(
+        JsonElement parent,
+        string propertyName,
+        string? displayName = null)
     {
         if (!parent.TryGetProperty(propertyName, out var user)
             || user.ValueKind != JsonValueKind.Object)
@@ -426,7 +436,7 @@ public class GitHubProvider : ISourceControlProvider
         return new ContributorRecord(
             ExternalId: GetString(user, "id") ?? login,
             Login: login,
-            Name: null,
+            Name: displayName,
             AvatarUrl: GetString(user, "avatar_url"),
             HtmlUrl: GetString(user, "html_url"),
             IsBot: string.Equals(GetString(user, "type"), "Bot", StringComparison.OrdinalIgnoreCase)

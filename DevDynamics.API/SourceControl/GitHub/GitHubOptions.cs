@@ -42,4 +42,10 @@ public class GitHubOptions
 
     public int MaxRetries { get; set; } = 3;
     public int RequestTimeoutSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// Rows persisted per database round trip during ingestion. Bounds peak
+    /// memory for very large repositories while keeping writes batched.
+    /// </summary>
+    public int WriteBatchSize { get; set; } = 250;
 }

@@ -17,7 +17,6 @@ public interface ISyncQueue
 {
     bool Enqueue(int repositoryId);
     IAsyncEnumerable<int> DequeueAllAsync(CancellationToken cancellationToken);
-    int PendingCount { get; }
 }
 
 public class SyncQueue : ISyncQueue
@@ -29,16 +28,6 @@ public class SyncQueue : ISyncQueue
     private readonly HashSet<int> _queued = [];
     private readonly object _gate = new();
 
-    public int PendingCount
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return _queued.Count;
-            }
-        }
-    }
 
     public bool Enqueue(int repositoryId)
     {

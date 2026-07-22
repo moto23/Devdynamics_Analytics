@@ -1,7 +1,7 @@
 /* ==============================================
    CONTAINER
 =============================================== */
-.companies-container {
+.repositories-container {
     max-width: 1100px;
     margin: 40px auto;
     padding: 24px 28px;
@@ -91,13 +91,13 @@
     font-size: 14px;
   }
   
-  td:not(.company-name) {
+  td:not(.repository-name) {
     text-align: center;
     font-weight: 500;
     color: #334155;
   }
   
-  .company-name {
+  .repository-name {
     font-weight: 600;
     color: #0f172a;
   }
@@ -112,7 +112,7 @@
     background: #f0f7ff;
   }
   
-  .clickable-row:hover .company-name {
+  .clickable-row:hover .repository-name {
     color: #2563eb;
   }
   
@@ -164,11 +164,11 @@
     border-top-color: rgba(255, 255, 255, 0.05);
   }
   
-  :host-context(body.dark-mode) td:not(.company-name) {
+  :host-context(body.dark-mode) td:not(.repository-name) {
     color: #94a3b8;
   }
   
-  :host-context(body.dark-mode) .company-name {
+  :host-context(body.dark-mode) .repository-name {
     color: #e2e8f0;
   }
   
@@ -176,6 +176,6 @@
     background: rgba(37, 99, 235, 0.08);
   }
   
-  :host-context(body.dark-mode) .clickable-row:hover .company-name {
+  :host-context(body.dark-mode) .clickable-row:hover .repository-name {
     color: #60a5fa;
   }

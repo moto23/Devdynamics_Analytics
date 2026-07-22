@@ -301,11 +301,11 @@ public class RepositorySyncService(
     // Contributors
     // =====================================================================
 
-    /// <summary>
-    /// Rows per database round trip. Bounds peak memory for very large
-    /// repositories while keeping writes batched.
-    /// </summary>
-    private const int BatchSize = 250;
+    /// <summary>Rows per database round trip; see GitHubOptions.WriteBatchSize.</summary>
+    private int BatchSize => Math.Max(1, _options.WriteBatchSize);
+
+    /// <summary>Matches the LastSyncError column length.</summary>
+    private const int MaxErrorLength = 1000;
 
     /// <summary>
     /// Persists a batch of commits: one query to resolve contributors, one
@@ -427,7 +427,7 @@ public class RepositorySyncService(
         CancellationToken cancellationToken)
     {
         repository.SyncStatus = SyncStatuses.Failed;
-        repository.LastSyncError = error.Length > 1000 ? error[..1000] : error;
+        repository.LastSyncError = error.Length > MaxErrorLength ? error[..MaxErrorLength] : error;
         repository.LastSyncCompletedAtUtc = DateTime.UtcNow;
         repository.LastSyncDurationMs = (int)stopwatch.ElapsedMilliseconds;
 

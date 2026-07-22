@@ -1,4 +1,4 @@
-<div class="companies-container">
+<div class="repositories-container">
 
   <h1>Tracked Repositories</h1>
 
@@ -36,7 +36,7 @@
             [class.inactive-row]="!r.isActive"
             (click)="viewAnalytics(r)">
 
-          <td class="company-name">
+          <td class="repository-name">
             {{ r.fullName }}
             <span class="badge" *ngIf="r.isDemoData">demo</span>
             <span class="badge" *ngIf="!r.isActive">disabled</span>

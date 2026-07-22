@@ -15,13 +15,13 @@ import { GraphqlService, TrackedRepository } from '../services/graphql.service';
  * build on.
  */
 @Component({
-  selector: 'app-companies',
+  selector: 'app-repositories',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './companies.component.html',
-  styleUrls: ['./companies.component.css']
+  templateUrl: './repositories.component.html',
+  styleUrls: ['./repositories.component.css']
 })
-export class CompaniesComponent implements OnInit {
+export class RepositoriesComponent implements OnInit {
 
   searchText = '';
   loading = false;
