@@ -459,24 +459,75 @@ table.data tr:focus-within .row-actions { opacity: 1; }
 }
 
 /* =========================================================================
-   Menu (contextual ⋮ actions)
+   Overlay panels (dropdowns, contextual menus)
+   =========================================================================
+   These live at <body> level, moved there by the overlay portal.
+
+   That is required, not stylistic: an ancestor with backdrop-filter, filter or
+   transform becomes the containing block for position:fixed descendants, and
+   our glass cards use backdrop-filter. A panel rendered inside one resolved its
+   coordinates against the card instead of the viewport and appeared detached
+   from its trigger. At <body> level the coordinates mean what they say, the
+   panel cannot be clipped by an ancestor's overflow, and because it is fixed it
+   never contributes to page layout.
    ========================================================================= */
+.dd-panel,
 .menu-panel {
   position: fixed;
-  z-index: 70;
-  min-width: 196px;
-  padding: var(--space-2);
+  z-index: 200;              /* above the sticky header (15) and sidebar (20) */
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
   border-radius: var(--radius-md);
   background: var(--surface-2);
   border: 1px solid var(--border-strong);
   box-shadow: var(--shadow-lg);
-  animation: menu-pop var(--dur-fast) var(--ease) both;
+  overflow: hidden;
+  animation: dd-in var(--dur-fast) var(--ease) both;
 }
-@keyframes menu-pop {
-  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+
+@keyframes dd-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.99); }
   to   { opacity: 1; transform: none; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .dd-panel, .menu-panel { animation: none; }
+}
+
+/* Search stays put while the list scrolls beneath it. */
+.dd-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.dd-search app-icon { color: var(--text-muted); flex: none; }
+.dd-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13.5px;
+  outline: none;
+}
+.dd-search input::placeholder { color: var(--text-muted); }
+
+.dd-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;   /* scrolling the list never scrolls the page */
+  padding: var(--space-2);
+  scrollbar-width: thin;
+}
+
+.dd-option,
 .menu-item {
   display: flex;
   align-items: center;
@@ -492,12 +543,33 @@ table.data tr:focus-within .row-actions { opacity: 1; }
   text-align: left;
   cursor: pointer;
 }
+.dd-option.active,
+.dd-option:hover,
 .menu-item:hover { background: var(--surface-3); color: var(--text-primary); }
+
+.dd-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-meta { font-size: 12px; color: var(--text-muted); flex: none; font-variant-numeric: tabular-nums; }
+.dd-tick { color: var(--accent); flex: none; }
+
+.dd-empty { padding: var(--space-4); text-align: center; font-size: 13px; color: var(--text-muted); }
+
+/* Contextual (⋮) menus reuse the same panel. */
+.menu-panel { padding: var(--space-2); min-width: 196px; }
 .menu-item:disabled { opacity: 0.45; cursor: not-allowed; }
 .menu-item.danger { color: var(--status-critical); }
 .menu-item.danger:hover { background: color-mix(in srgb, var(--status-critical) 12%, transparent); }
 
-.menu-separator { height: 1px; margin: var(--space-2) 0; background: var(--border); }
+.menu-separator { height: 1px; margin: var(--space-2) 0; background: var(--border); flex: none; }
+
+/* On narrow screens a panel anchored to a small trigger is hard to use, so it
+   spans the viewport width instead. */
+@media (max-width: 480px) {
+  .dd-panel {
+    left: var(--space-3) !important;
+    right: var(--space-3);
+    width: auto !important;
+  }
+}
 
 /* =========================================================================
    Forms

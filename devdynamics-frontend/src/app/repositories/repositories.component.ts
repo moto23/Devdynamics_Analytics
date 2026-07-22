@@ -9,6 +9,7 @@ import { AdminService } from '../core/admin.service';
 import { ToastService } from '../core/toast.service';
 
 import { IconComponent } from '../shared/icon.component';
+import { OverlayPortalDirective, positionPanel, trackViewportChanges } from '../shared/overlay';
 import {
   SortHeaderComponent, PaginatorComponent, StatusBadgeComponent, EmptyStateComponent
 } from '../shared/table.components';
@@ -22,7 +23,7 @@ type Dialog = 'add' | 'edit' | 'remove' | null;
   selector: 'app-repositories',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, IconComponent,
+    CommonModule, FormsModule, IconComponent, OverlayPortalDirective,
     SortHeaderComponent, PaginatorComponent, StatusBadgeComponent, EmptyStateComponent,
     AddRepositoryDialogComponent, EditRepositoryDialogComponent, RemoveRepositoryDialogComponent
   ],
@@ -55,6 +56,11 @@ export class RepositoriesComponent implements OnInit, OnDestroy {
   readonly openMenuId = signal<number | null>(null);
   readonly menuTop = signal(0);
   readonly menuLeft = signal(0);
+  readonly menuMaxHeight = signal(400);
+
+  private menuTrigger: HTMLElement | null = null;
+  private menuPanel: HTMLElement | null = null;
+  private stopTrackingMenu?: () => void;
 
   readonly dialog = signal<Dialog>(null);
   activeRepository: TrackedRepository | null = null;
@@ -74,6 +80,7 @@ export class RepositoriesComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.searchSub?.unsubscribe();
+    this.stopTrackingMenu?.();
   }
 
   // ---- Data ----
@@ -145,44 +152,47 @@ export class RepositoriesComponent implements OnInit, OnDestroy {
     event.stopPropagation();
 
     const wasOpen = this.openMenuId() === repository.id;
-    this.openMenuId.set(wasOpen ? null : repository.id);
+
+    if (wasOpen) {
+      this.closeMenu();
+      return;
+    }
+
+    this.menuTrigger = event.currentTarget as HTMLElement;
     this.activeRepository = repository;
+    this.openMenuId.set(repository.id);
 
-    if (wasOpen) return;
-
-    const trigger = (event.currentTarget as HTMLElement).getBoundingClientRect();
-
-    // Provisional placement, then corrected once the menu has real dimensions.
-    // Positioning from an estimated height is what clipped this menu before:
-    // the estimate and the rendered height disagreed.
-    this.menuTop.set(trigger.bottom + 6);
-    this.menuLeft.set(trigger.right - 200);
-
-    requestAnimationFrame(() => this.clampMenu(trigger));
+    this.stopTrackingMenu = trackViewportChanges(() => this.positionMenu());
   }
 
-  /** Fits the rendered menu inside the viewport, flipping above the trigger if needed. */
-  private clampMenu(trigger: DOMRect) {
-    const menu = document.querySelector<HTMLElement>('.menu-panel');
-    if (!menu) return;
-
-    const { width, height } = menu.getBoundingClientRect();
-    const margin = 8;
-
-    const top = trigger.bottom + 6 + height > window.innerHeight - margin
-      ? Math.max(margin, trigger.top - height - 6)
-      : trigger.bottom + 6;
-
-    const left = Math.min(
-      Math.max(margin, trigger.right - width),
-      window.innerWidth - width - margin
-    );
-
-    this.menuTop.set(top);
-    this.menuLeft.set(Math.max(margin, left));
+  /** Positions as soon as the panel exists, avoiding a frame-timing race. */
+  onMenuReady(element: HTMLElement) {
+    this.menuPanel = element;
+    this.positionMenu();
   }
 
-  closeMenu() { this.openMenuId.set(null); }
+  /** Anchors the menu to its trigger, inside the viewport. */
+  private positionMenu() {
+    const panel = this.menuPanel;
+    if (!panel || !this.menuTrigger) return;
+
+    const placement = positionPanel(this.menuTrigger.getBoundingClientRect(), panel, {
+      alignEnd: true,
+      minWidth: 196
+    });
+
+    this.menuTop.set(placement.top);
+    this.menuLeft.set(placement.left);
+    this.menuMaxHeight.set(placement.maxHeight);
+  }
+
+  closeMenu() {
+    this.openMenuId.set(null);
+    this.stopTrackingMenu?.();
+    this.stopTrackingMenu = undefined;
+    this.menuTrigger = null;
+    this.menuPanel = null;
+  }
 
   @HostListener('document:click')
   onDocumentClick() { this.closeMenu(); }

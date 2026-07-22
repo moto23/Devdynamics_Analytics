@@ -196,9 +196,13 @@
 <div
   class="menu-panel"
   *ngIf="openMenuId() !== null && activeRepository"
+  appOverlayPortal
+  (ready)="onMenuReady($event)"
   role="menu"
   [style.top.px]="menuTop()"
   [style.left.px]="menuLeft()"
+  [style.max-height.px]="menuMaxHeight()"
+  [style.overflow-y]="'auto'"
   (click)="$event.stopPropagation()">
 
   <button type="button" class="menu-item" role="menuitem" (click)="view(activeRepository!)">

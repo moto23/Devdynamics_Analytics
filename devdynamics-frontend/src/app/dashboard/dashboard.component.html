@@ -32,42 +32,26 @@
 
       <div class="field">
         <span class="label">Repository</span>
-        <div class="select" [class.open]="repositoryDropdownOpen">
-          <button type="button" class="select-trigger"
-                  (click)="$event.stopPropagation(); repositoryDropdownOpen = !repositoryDropdownOpen"
-                  [attr.aria-expanded]="repositoryDropdownOpen">
-            <span class="select-value">{{ repository || 'All repositories' }}</span>
-            <app-icon name="chevron-down" [size]="15"></app-icon>
-          </button>
-          <div class="select-menu" role="listbox">
-            <button type="button" class="option" (click)="selectRepository(null)">All repositories</button>
-            <button type="button" class="option" *ngFor="let r of repositories"
-                    (click)="selectRepository(r.fullName)">
-              {{ r.fullName }}
-              <span class="option-meta tabular">{{ r.totalCommits }}</span>
-            </button>
-          </div>
-        </div>
+        <app-combobox
+          [options]="repositoryOptions"
+          [value]="repository"
+          placeholder="All repositories"
+          ariaLabel="Filter by repository"
+          icon="repo"
+          (valueChange)="selectRepository($event)">
+        </app-combobox>
       </div>
 
       <div class="field">
         <span class="label">Contributor</span>
-        <div class="select" [class.open]="contributorDropdownOpen">
-          <button type="button" class="select-trigger"
-                  (click)="$event.stopPropagation(); contributorDropdownOpen = !contributorDropdownOpen"
-                  [attr.aria-expanded]="contributorDropdownOpen">
-            <span class="select-value">{{ contributor || 'All contributors' }}</span>
-            <app-icon name="chevron-down" [size]="15"></app-icon>
-          </button>
-          <div class="select-menu" role="listbox">
-            <button type="button" class="option" (click)="selectContributor('')">All contributors</button>
-            <button type="button" class="option" *ngFor="let c of contributors.slice(0, 40)"
-                    (click)="selectContributor(c.login)">
-              {{ c.login }}
-              <span class="option-meta tabular">{{ c.commits }}</span>
-            </button>
-          </div>
-        </div>
+        <app-combobox
+          [options]="contributorOptions"
+          [value]="contributor || null"
+          placeholder="All contributors"
+          ariaLabel="Filter by contributor"
+          icon="users"
+          (valueChange)="selectContributor($event ?? '')">
+        </app-combobox>
       </div>
     </div>
 

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -16,13 +16,14 @@ import { StatTileComponent } from '../shared/stat-tile.component';
 import { ChartCardComponent } from '../shared/chart-card.component';
 import { LineChartComponent, LineSeries } from '../charts/line-chart.component';
 import { BarChartComponent } from '../charts/bar-chart.component';
+import { ComboboxComponent, ComboOption } from '../shared/combobox.component';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [
     CommonModule, FormsModule, IconComponent,
-    StatTileComponent, ChartCardComponent, LineChartComponent, BarChartComponent
+    StatTileComponent, ChartCardComponent, LineChartComponent, BarChartComponent, ComboboxComponent
   ],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
@@ -40,9 +41,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   repository: string | null = null;
   excludeBots = false;
   activeQuickRange: number | null = null;
-
-  contributorDropdownOpen = false;
-  repositoryDropdownOpen = false;
 
   loading = true;
   errorMessage = '';
@@ -73,14 +71,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private readonly route: ActivatedRoute,
     private readonly router: Router
   ) {}
-
-  @HostListener('document:click', ['$event'])
-  onClickOutside(event: MouseEvent) {
-    if (!(event.target as HTMLElement).closest('.select')) {
-      this.contributorDropdownOpen = false;
-      this.repositoryDropdownOpen = false;
-    }
-  }
 
   ngOnInit() {
     // The fetch pipeline must be subscribed BEFORE the route subscription:
@@ -115,14 +105,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   selectContributor(login: string) {
     this.contributor = login;
-    this.contributorDropdownOpen = false;
     this.syncUrl();
   }
 
   selectRepository(fullName: string | null) {
     this.repository = fullName;
-    this.repositoryDropdownOpen = false;
     this.syncUrl();
+  }
+
+  /** Rebuilt only when data arrives, so the combobox input keeps a stable identity. */
+  repositoryOptions: ComboOption[] = [{ value: null, label: 'All repositories' }];
+  contributorOptions: ComboOption[] = [{ value: null, label: 'All contributors' }];
+
+  private buildFilterOptions() {
+    this.repositoryOptions = [
+      { value: null, label: 'All repositories' },
+      ...this.repositories.map(r => ({
+        value: r.fullName,
+        label: r.fullName,
+        meta: r.totalCommits.toLocaleString()
+      }))
+    ];
+
+    this.contributorOptions = [
+      { value: null, label: 'All contributors' },
+      ...this.contributors.map(c => ({
+        value: c.login,
+        label: c.login,
+        meta: c.commits.toLocaleString()
+      }))
+    ];
   }
 
   setQuickRange(days: number) {
@@ -224,6 +236,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.repositories = res.repositories ?? [];
         this.contributors = res.contributors?.items ?? [];
 
+        this.buildFilterOptions();
         this.buildCharts(res.trends ?? [], res.cycle ?? []);
         this.finish();
 
