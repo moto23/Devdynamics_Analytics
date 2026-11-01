@@ -1,0 +1,3 @@
+# Only needed when using --save-mongo.
+-r requirements.txt
+pymongo>=4.5,<5

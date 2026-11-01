@@ -1,0 +1,5 @@
+# Optional LangChain/ChromaDB features. Run core without these packages.
+-r requirements.txt
+langchain-core>=1.0,<2
+langchain-openai>=1.0,<2
+langchain-chroma>=1.0,<2

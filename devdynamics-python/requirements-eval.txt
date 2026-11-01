@@ -1,0 +1,3 @@
+# DeepEval's judge can incur model API charges.
+-r requirements-rag.txt
+deepeval>=3.0,<6
