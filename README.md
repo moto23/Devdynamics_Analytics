@@ -1,292 +1,377 @@
-# DevDynamics — GitHub Analytics Platform
 
-A developer analytics platform that ingests real data from the GitHub REST API
-and reports commit trends, pull request cycle time, contributor insights and
-repository-level analytics over any set of tracked repositories.
+# 🚀 DevDynamics — AI-Powered GitHub Analytics Dashboard
 
-**Live:** https://devdynamics-frontend.onrender.com
-**API:** https://devdynamics-api.onrender.com/graphql
+### Track developer activity. Explore repository trends. Ask questions using RAG.
 
-Repositories are managed at runtime. Adding, removing, enabling or disabling a
-repository is a database change through the API — never a code change. The
-platform scales from one repository to hundreds without modification.
+**Python · Flask · MongoDB · GitHub REST API · LangChain · ChromaDB · DeepEval · React.js · Chart.js**
+
+![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-000000?logo=flask&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?logo=mongodb&logoColor=white)
+![React](https://img.shields.io/badge/React-149ECA?logo=react&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-RAG-1C3C3C)
+
+**DevDynamics** is an individual full-stack developer analytics project that converts GitHub activity into visual insights and natural-language answers. Its **Flask REST APIs** ingest commits, pull requests, and contributor data from the **GitHub REST API**, store repository activity in **MongoDB**, and power a **React.js + Chart.js** analytics dashboard.
+
+An additional **LangChain-based Retrieval-Augmented Generation (RAG)** pipeline uses **embeddings and ChromaDB vector search** to answer questions about repository data. **DeepEval** is used to evaluate answer relevance.
+
+> **Project scope:** GitHub developer analytics across **6 repositories**. The README does not claim unreported accuracy scores, latency gains, or production scale.
+
+## 🔗 Live Demo
+
+**[Open DevDynamics](https://devdynamics-frontend.onrender.com)**
+
+> This URL comes from the earlier DevDynamics README, which described an Angular/.NET implementation. Verify that the deployment now runs the Flask/React version before advertising it as the updated demo. Replace it if the new version has a different URL.
 
 ---
 
-## Architecture
+## ✨ Key Features
 
-```
-┌─────────────────────────────┐
-│  Angular 19 (standalone)    │   devdynamics-frontend.onrender.com
-│  Apollo Client · ngx-charts │
-└──────────────┬──────────────┘
-               │ GraphQL over HTTPS
-┌──────────────▼──────────────────────────────────────────┐
-│  ASP.NET Core 8  ·  HotChocolate GraphQL                │
-│                                                          │
-│   Query    (public)          Mutation (X-Admin-Key)      │
-│   summaryStats               addRepository               │
-│   commitTrends               removeRepository            │
-│   prCycleTime                setRepositoryActive         │
-│   contributors               syncRepository              │
-│   trackedRepositories        syncAllRepositories         │
-│                                    │                     │
-│                    RepositoryRegistryService             │
-│                                    │ enqueue             │
-│                    SyncQueue ─▶ SyncWorker (hosted)      │
-│                                    │                     │
-│                       ISourceControlProvider  ◀── seam   │
-│                                    │                     │
-│                            GitHubProvider                │
-└───────────────┬─────────────────────────────┬────────────┘
-                │ EF Core 8                   │ REST
-┌───────────────▼──────────────┐   ┌──────────▼───────────┐
-│  Azure SQL Database          │   │  GitHub REST API     │
-│  TrackedRepositories         │   │  authenticated       │
-│  Commits · PullRequests      │   │  paginated · ETags   │
-│  Contributors                │   │  rate-limit aware    │
-└──────────────────────────────┘   └──────────────────────┘
-```
-
-### Design notes
-
-**The registry drives everything.** The sync worker reads only from
-`TrackedRepositories`; analytics scope to active rows. No repository name or
-count appears anywhere in the source.
-
-**Provider-neutral domain.** `ISourceControlProvider` exchanges neutral records
-(`RepositoryDescriptor`, `CommitRecord`, `PullRequestRecord`,
-`ContributorRecord`). Transport concerns — pagination, conditional requests,
-retries, rate limiting — live inside the provider implementation. Adding GitLab,
-Azure DevOps or Bitbucket is one class plus one DI registration; the schema,
-sync engine and analytics are untouched.
-
-**Identity is `(Provider, ExternalId)`,** not a name. Repository transfers and
-username changes resolve to the same row rather than creating duplicates.
-
-**Idempotency is enforced by the database,** not by application logic:
-
-| Constraint | Guarantees |
+| Feature | Description |
 |---|---|
-| `Commits (RepositoryId, Sha)` UNIQUE | a commit is inserted at most once |
-| `PullRequests (RepositoryId, Number)` UNIQUE | a PR is updated in place on re-sync |
-| `Contributors (Provider, ExternalId)` UNIQUE | one identity across all repositories |
-| `TrackedRepositories (Provider, FullName)` UNIQUE | a repository cannot be added twice |
-
-**Pull requests sync by `updated_at`, not `created_at`.** A PR mutates after
-creation — an open PR is later merged. Syncing by creation date would
-permanently miss merges on older PRs.
+| **GitHub data ingestion** | Collects commits, pull requests, and contributors using the GitHub REST API. |
+| **Multi-repository analytics** | Provides developer activity insights across **6 tracked repositories**. |
+| **Commit analytics** | Visualizes repository activity and commit trends over time. |
+| **Pull request insights** | Analyzes PR activity and relevant lifecycle timestamps. |
+| **Contributor insights** | Summarizes contributor participation across repositories. |
+| **Interactive dashboard** | Displays analytics through **React.js** and **Chart.js**. |
+| **Natural-language queries** | Lets users explore repository context by asking questions. |
+| **Semantic retrieval** | Uses **LangChain**, embeddings, and **ChromaDB** for similarity search. |
+| **RAG answer evaluation** | Uses **DeepEval** to evaluate how relevant answers are to questions. |
 
 ---
 
-## Technology stack
+## 🏗️ System Architecture
 
-| Layer | Technology |
+The project uses two connected data paths: **structured analytics** for dashboard metrics and a **semantic retrieval pipeline** for natural-language answers.
+
+```mermaid
+flowchart TB
+    USER([Developer]) --> UI["React.js Dashboard<br/>Chart.js + AI Query Interface"]
+    UI <-->|JSON / REST| API["Python Flask REST API"]
+
+    GH["GitHub REST API<br/>Commits · PRs · Contributors"] --> INGEST["GitHub Data Ingestion<br/>Fetch + Normalize"]
+    INGEST --> DB[("MongoDB<br/>Repository Activity")]
+
+    API --> ANALYTICS["Analytics Layer<br/>Commit · PR · Contributor Metrics"]
+    ANALYTICS <--> DB
+
+    DB --> PREP["Repository Context<br/>Preparation"]
+    PREP --> EMB["Embeddings<br/>LangChain"]
+    EMB --> VECTOR[("ChromaDB<br/>Vector Store")]
+
+    API --> RAG["LangChain RAG Pipeline"]
+    RAG -->|Similarity Search| VECTOR
+    VECTOR -->|Relevant Context| RAG
+    RAG --> LLM["Configured Language Model<br/>Context-Aware Answer"]
+    LLM --> RAG
+    RAG --> API
+
+    RAG -.-> EVAL["DeepEval<br/>Answer Relevance"]
+
+    classDef ui fill:#eaf3ff,stroke:#4779b8,color:#15385c
+    classDef service fill:#edf8f0,stroke:#3b9364,color:#1a4e32
+    classDef ai fill:#fff3e4,stroke:#bb812f,color:#67410c
+    classDef store fill:#f4efff,stroke:#8467b2,color:#463168
+    class USER,UI ui
+    class API,INGEST,ANALYTICS,PREP service
+    class EMB,RAG,LLM,EVAL ai
+    class GH,DB,VECTOR store
+```
+
+### End-to-End Data Flow
+
+```mermaid
+flowchart LR
+    A["6 GitHub Repositories"] --> B["GitHub REST API"]
+    B --> C["Flask Ingestion"]
+    C --> D[("MongoDB")]
+    D --> E["Analytics APIs"]
+    E --> F["React + Chart.js"]
+    D --> G["Embedding + Indexing"]
+    G --> H[("ChromaDB")]
+    H --> I["LangChain RAG"]
+    I --> J["Natural-Language Insights"]
+```
+
+---
+
+## 🔄 GitHub Data Ingestion
+
+The Flask backend gathers repository data from GitHub, prepares structured records, and stores them for analytics.
+
+| Source | Example information | Used for |
+|---|---|---|
+| **Commits** | SHA, author, timestamp, repository | Activity trends and commit counts |
+| **Pull requests** | PR number, state, created/merged timestamps | PR activity and lifecycle analysis |
+| **Contributors** | Contributor identity and activity | Contributor insights |
+| **Repositories** | Owner, name, identifying metadata | Repository-level grouping |
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant GH as GitHub REST API
+    participant ING as Flask Ingestion
+    participant DB as MongoDB
+    participant API as Flask Analytics API
+    participant UI as React Dashboard
+
+    ING->>GH: Fetch commits, PRs and contributors
+    GH-->>ING: GitHub JSON responses
+    ING->>ING: Extract and normalize records
+    ING->>DB: Store repository activity
+    UI->>API: Request analytics
+    API->>DB: Query repository records
+    DB-->>API: Aggregated data
+    API-->>UI: JSON response
+    UI->>UI: Render Chart.js views
+```
+
+**Engineering consideration:** Repeated synchronization should use stable GitHub identifiers (for example, a commit SHA or repository + PR number) to avoid duplicates. Confirm the actual upsert/index behavior in the implementation.
+
+---
+
+## 📊 Developer Analytics Dashboard
+
+The React frontend provides an accessible view of GitHub activity across the tracked repositories.
+
+### Commit Trends
+- Inspect commit activity over time.
+- Compare activity across repositories.
+- Explore contributor-linked changes where GitHub metadata is available.
+
+### Pull Request Analytics
+- Review open, closed, and merged PR activity where available.
+- Examine PR lifecycle timestamps and merge trends.
+- Compare repository-level PR patterns.
+
+### Contributor Insights
+- Review contributor participation and activity summaries.
+- Identify changes in contribution patterns.
+- Visualize repository-level developer activity.
+
+> Commit and PR counts indicate recorded activity, **not individual developer performance or code quality**.
+
+---
+
+## 🧠 Natural-Language Repository Q&A (LangChain RAG)
+
+DevDynamics adds semantic search so users can ask questions about indexed repository activity instead of relying only on charts and filters.
+
+### RAG Workflow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant UI as React Query UI
+    participant API as Flask API
+    participant LC as LangChain
+    participant VS as ChromaDB
+    participant LLM as Language Model
+
+    User->>UI: Ask about repository activity
+    UI->>API: Submit question
+    API->>LC: Start RAG request
+    LC->>LC: Embed query
+    LC->>VS: Similarity search
+    VS-->>LC: Relevant repository context
+    LC->>LLM: Question + retrieved context
+    LLM-->>LC: Generated answer
+    LC-->>API: Answer
+    API-->>UI: JSON response
+    UI-->>User: Display insight
+```
+
+**How it works:**
+
+1. **Prepare context:** Convert useful GitHub records into text that can be retrieved.
+2. **Embed:** Generate vector embeddings for repository context.
+3. **Index:** Store vectors in **ChromaDB**.
+4. **Retrieve:** Find relevant context for the incoming question using **LangChain**.
+5. **Generate:** Provide the question and retrieved information to the configured language model.
+6. **Evaluate:** Review answer relevance using **DeepEval**.
+
+**Example questions** (illustrative):
+
+- "Which repository had the most commit activity?"
+- "Summarize recent pull request trends."
+- "How does contributor activity compare across repositories?"
+- "What changed in repository activity over the selected period?"
+
+> The supplied project description does not specify an embedding model, generation model, chunking configuration, or retrieval `top_k`; those should be documented from the actual code rather than guessed.
+
+---
+
+## 🧪 RAG Evaluation with DeepEval
+
+**DeepEval** is used to evaluate **answer relevance**: whether generated responses adequately address the user's repository question.
+
+```mermaid
+flowchart LR
+    Q["Evaluation Questions"] --> R["LangChain RAG"]
+    C["Indexed GitHub Context"] --> R
+    R --> A["Generated Answers"]
+    Q --> D["DeepEval<br/>Answer Relevance"]
+    A --> D
+    D --> REVIEW["Review Results"]
+    REVIEW -.->|Refine retrieval / prompts| R
+```
+
+| Evaluation aspect | Purpose | Reported status |
+|---|---|---|
+| **Answer relevance** | Measures whether an answer addresses the question | **Evaluated using DeepEval** |
+| **Retrieval usefulness** | Checks whether relevant repository context is retrieved | No metric reported |
+| **Faithfulness / grounding** | Checks whether claims are supported by retrieved content | No metric reported |
+| **Latency** | Measures end-to-end answer time | No benchmark reported |
+
+No numerical DeepEval scores or performance benchmarks are asserted because none were supplied.
+
+---
+
+## 🛠️ Technology Stack
+
+| Layer | Technologies |
 |---|---|
-| Frontend | Angular 19 (standalone components), TypeScript, Apollo Client, ngx-charts |
-| API | ASP.NET Core 8, HotChocolate 15 (GraphQL) |
-| Data access | Entity Framework Core 8 |
-| Database | Azure SQL Database (SQL Server) |
-| Ingestion | GitHub REST API v2022-11-28 |
-| Hosting | Render (static site + Docker web service) |
+| **Frontend** | React.js, Chart.js, JavaScript |
+| **Backend** | Python, Flask, REST APIs |
+| **GitHub Integration** | GitHub REST API |
+| **Primary Data Store** | MongoDB |
+| **AI Orchestration** | LangChain, Retrieval-Augmented Generation (RAG) |
+| **Semantic Search** | Embeddings, ChromaDB |
+| **Evaluation** | DeepEval |
 
 ---
 
-## Features
+## 🚀 Getting Started
 
-- **Dynamic repository management** — add, remove, enable, disable and resync any
-  public repository at runtime
-- **Real GitHub ingestion** — repositories, commits, pull requests and contributors
-- **Commit trends** — commits per day, filterable by repository, contributor and date
-- **PR cycle time** — average hours from open to merge, bucketed by merge date over
-  merged pull requests only
-- **Contributor insights** — ranked activity, with optional exclusion of bot accounts
-- **Incremental synchronisation** — cursor-based, resumable, idempotent
-- **Background sync worker** — queued, non-blocking, recovers interrupted runs
-- **Rate-limit aware** — conditional requests, graceful stop at a configurable floor
-- **Admin-protected mutations** — analytics stay public, management requires a key
-
----
-
-## Setup
+> **Note:** The commands below assume conventional `backend/` and `frontend/` folders. Adapt folder names, environment variables, and entry points to the actual Python/React repository. The original uploaded README documented a different .NET/Angular codebase.
 
 ### Prerequisites
-- .NET 8 SDK
-- Node.js 20+
-- A SQL Server database (Azure SQL free tier works)
-- A GitHub personal access token
+- Python and pip (version compatible with your installed packages)
+- Node.js and npm
+- MongoDB (local or hosted)
+- Git
+- GitHub access token, if required for your configured requests
+- Credentials for the language model configured in your RAG implementation
 
-### Backend
+### 1. Clone the repository
 
 ```bash
-cd DevDynamics.API
-
-# Secrets stay outside the repository
-dotnet user-secrets init
-dotnet user-secrets set "ConnectionStrings:Default" "<sql-server-connection-string>"
-dotnet user-secrets set "GitHub:Token" "<github-token>"
-dotnet user-secrets set "Admin:ApiKey" "<random-admin-key>"
-
-dotnet run
+git clone <YOUR_GITHUB_REPOSITORY_URL>
+cd DevDynamics
 ```
 
-Migrations apply automatically at startup. With no connection string the API
-falls back to a local SQLite file so it still runs.
-
-### Frontend
+### 2. Start the Flask backend
 
 ```bash
-cd devdynamics-frontend
+cd backend
+python -m venv .venv
+```
+
+**Windows PowerShell:**
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+**macOS / Linux:**
+
+```bash
+source .venv/bin/activate
+```
+
+```bash
+pip install -r requirements.txt
+```
+
+Configure the variables used by your actual backend. **Example names only**:
+
+```env
+GITHUB_TOKEN=<your-github-token>
+MONGODB_URI=<your-mongodb-connection-string>
+CHROMA_PERSIST_DIRECTORY=./chroma_db
+# Add the model-provider key expected by your LangChain integration.
+```
+
+If your application exposes `app` from `app.py`, you can start it with:
+
+```bash
+flask --app app run --debug --port 5000
+```
+
+### 3. Start the React frontend
+
+Open a new terminal at the project root:
+
+```bash
+cd frontend
 npm install
-npm start          # http://localhost:4200
+npm run dev
 ```
 
-`src/environments/environment.ts` points at `http://localhost:5236/graphql`;
-`environment.prod.ts` targets the deployed API.
+Use `npm start` instead if that is the script configured in `package.json`. For Vite projects, a common API URL setting is `VITE_API_BASE_URL=http://localhost:5000`; confirm the actual frontend configuration key.
 
-### GitHub token
+### 4. Prepare Analytics and RAG Data
 
-Create a **classic** token at *Settings → Developer settings → Personal access
-tokens*. For public repositories, **check no scopes at all** — an unscoped token
-still receives the full 5,000 requests/hour while having no write access to your
-account. Do not grant `repo`; it is not needed and grants full access to your
-private repositories.
+1. Configure the **6 GitHub repositories** to ingest.
+2. Run the ingestion entry point included in your backend to populate MongoDB.
+3. Run the indexing entry point included in your RAG implementation to populate ChromaDB.
+4. Open the dashboard and test both analytics and natural-language queries.
 
----
-
-## Environment variables
-
-Configuration binds with `__` (double underscore) mapping to `:`.
-
-| Variable | Required | Description |
-|---|---|---|
-| `ConnectionStrings__Default` | yes | SQL Server connection string. Falls back to SQLite when unset. |
-| `GitHub__Token` | yes | GitHub PAT. Without it, syncs fail cleanly; ingested data still serves. |
-| `Admin__ApiKey` | yes | Guards management mutations. **Fails closed** when unset. |
-| `GitHub__SyncWindowDays` | no | First-sync lookback. Default `90`. |
-| `GitHub__MaxPagesPerResource` | no | Page budget per resource per run. Default `20`. |
-| `GitHub__PageSize` | no | Items per page, max 100. Default `100`. |
-| `GitHub__RateLimitFloor` | no | Stop syncing below this many remaining calls. Default `100`. |
-| `GitHub__OverlapBufferMinutes` | no | Re-request window absorbing clock skew. Default `60`. |
-| `GitHub__WriteBatchSize` | no | Rows per database round trip. Default `250`. |
-| `Database__*` | no | Retry count, delays, command timeout, startup wait. |
-| `Cors__AllowedOrigins__0` | no | Allowed origins; falls back to the deployed frontend. |
-
-**No secret is ever committed.** Locally they live in .NET user-secrets, outside
-the repository; in production they are Render environment variables.
+Exact ingestion/indexing script names are intentionally omitted because the current Flask repository structure was not provided.
 
 ---
 
-## GitHub integration
+## 🔒 Security and Reliability Considerations
 
-Follows GitHub REST API guidance:
-
-- **Authenticated requests** — `Authorization: Bearer`, explicit `User-Agent`,
-  pinned `X-GitHub-Api-Version: 2022-11-28`
-- **Pagination** — follows the `Link` header's `rel="next"`, capped by a
-  configurable page budget
-- **Conditional requests** — `If-None-Match` on the first page of each resource;
-  a `304 Not Modified` costs no rate limit
-- **Incremental sync** — commits by `since`, pull requests by `updated_at`
-- **Rate limits** — reads `x-ratelimit-remaining` / `x-ratelimit-reset` and stops
-  cleanly at the configured floor, marking the repository `PartiallySynced`
-- **Retries** — honours `Retry-After` for primary and secondary limits;
-  exponential backoff with jitter on `5xx`; no retry on `4xx`
-- **Terminal failures** — a deleted, renamed or private repository is deactivated
-  rather than retried indefinitely
-
-Cost per repository per sync is at most `1 + 2 × MaxPagesPerResource` requests
-(41 with defaults).
+- Keep GitHub tokens, database credentials, and model API keys in environment variables; never commit `.env` files.
+- Use GitHub API permissions appropriate to the repositories being read.
+- Handle pagination, API rate limits, and partial ingestion failures.
+- Validate request inputs and protect administrative actions where applicable.
+- Avoid sending private repository information to external models without authorization.
+- Use source records for factual metrics; treat generated text as explanatory assistance.
 
 ---
 
-## Demo workflow
+## ⚙️ Engineering Challenges
 
-```graphql
-# 1. What is currently tracked?
-query { trackedRepositories { id fullName syncStatus totalCommits totalPullRequests } }
-
-# 2. Track any public repository  (header: X-Admin-Key: <key>)
-mutation { addRepository(fullName: "vercel/next.js") { success message } }
-
-# 3. Analytics, automatically including the new repository
-query {
-  summaryStats { totalCommits totalPullRequests mergedPullRequests contributorCount avgPrCycleHours }
-  commitTrends(excludeBots: true) { date commits }
-  prCycleTime { date avgHours mergedCount }
-  contributors { login commits isBot }
-}
-
-# 4. Scope to one repository and a date range
-query {
-  commitTrends(
-    repository: "dotnet/efcore"
-    startDate: "2026-06-01T00:00:00.000Z"
-    endDate: "2026-07-22T23:59:59.999Z"
-    excludeBots: true
-  ) { date commits }
-}
-
-# 5. Disable without losing history, or remove entirely
-mutation { setRepositoryActive(id: 5, isActive: false) { success } }
-mutation { removeRepository(id: 5) { success } }
-```
-
-Operational endpoints: `/health` (liveness), `/db-info` (provider, migrations,
-connectivity — no credentials), `/benchmark` (query optimization comparison).
-
----
-
-## Screenshots
-
-> To add: dashboard with KPI cards and charts, repositories page with sync
-> status. The dashboard receives its full visual treatment in the UI phase; the
-> current interface is functional rather than final.
-
----
-
-## Current dataset
-
-Six demo repositories, seeded only into an empty registry and removable like any
-other row:
-
-| Metric | Value |
+| Challenge | Approach |
 |---|---|
-| Commits | 2,873 |
-| Pull requests | 3,611 (2,507 merged) |
-| Contributors | 270 |
-| Repositories | 6 |
-| Average PR cycle time | 150.7 hours |
+| **Different GitHub payload formats** | Normalize commit, PR, and contributor fields. |
+| **Repeated data ingestion** | Prefer stable identifiers and database upserts to avoid duplicate records. |
+| **Repository-level comparisons** | Group activity by repository and timestamp. |
+| **Finding relevant context for questions** | Combine LangChain embeddings with ChromaDB vector search. |
+| **Irrelevant AI-generated answers** | Use DeepEval relevance checks to guide improvements. |
+| **Misleading interpretations of activity** | Treat GitHub event counts as activity signals, not productivity scores. |
 
 ---
 
-## Known limitations
+## ⚠️ Known Scope and Limitations
 
-- **Sync window defaults to 90 days.** Older history requires raising
-  `GitHub__SyncWindowDays` and re-syncing.
-- **Page budget caps very large repositories.** `supabase/supabase` stops at
-  2,000 pull requests with default settings and reports `PartiallySynced`.
-- **Contributor display names populate incrementally.** The name comes from
-  commit metadata, so a contributor first seen through a pull request has no
-  name until they appear as a commit author.
-- **Sync is sequential and single-instance.** Correct at this scale; many
-  repositories would want concurrency and a durable queue.
-- **No scheduled sync.** Syncs are triggered through the API.
-- **Azure SQL serverless auto-pauses** when idle, so the first request after a
-  quiet period waits for a resume. Startup waits for this explicitly.
-- **Render free tier spins down** when idle; the first request pays a cold start.
-- **`DevActivities`** still holds legacy synthetic rows, retained only so the
-  query optimization benchmark stays reproducible. Unused by the dashboard.
+- Documented analytics covers **6 repositories**, without a published scalability benchmark.
+- GitHub API results depend on authorization, pagination, and rate limits.
+- Data freshness depends on the ingestion process and update frequency.
+- Semantic search depends on the quality and freshness of indexed context.
+- DeepEval answer relevance alone does **not** establish factual correctness or faithfulness.
+- The earlier .NET/Angular GraphQL endpoints and Azure SQL configuration do **not** describe this Flask/MongoDB implementation.
+
+## 🔮 Future Improvements
+
+- Scheduled repository synchronization and better sync-status visibility.
+- More analytics filters and repository comparisons.
+- Source-linked answers pointing to commits and PRs.
+- Additional retrieval-quality and groundedness evaluations.
+- Repeatable evaluation datasets and benchmark reporting.
+- More source-control providers and improved handling of large repositories.
 
 ---
 
-## Roadmap
+## 👨‍💻 Author
 
-- Advanced analytics: cross-contributor comparison, activity distribution,
-  repository-level breakdowns
-- Chart.js visualisations with a redesigned, responsive dashboard
-- Repository management UI for add / remove / enable / disable / resync
-- "Continue with GitHub" entry experience
-- Scheduled background synchronisation
-- Additional providers: GitLab, Azure DevOps, Bitbucket — the abstraction is
-  already in place
+**Prasad Nathe**  
+Individual Project
+
+## 📄 License
+
+Add a `LICENSE` file to specify terms if you intend to allow open-source reuse. Publicly visible source code is not automatically licensed for reuse.
