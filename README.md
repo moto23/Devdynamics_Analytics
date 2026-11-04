@@ -1,28 +1,11 @@
 
-## 🛠️ Tech Stack
-
-![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)
-![Flask](https://img.shields.io/badge/Flask-000000?logo=flask&logoColor=white)
-![MongoDB](https://img.shields.io/badge/MongoDB-47A248?logo=mongodb&logoColor=white)
-![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black)
-![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?logo=langchain&logoColor=white)
-![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector_DB-orange)
-![RAG](https://img.shields.io/badge/AI-RAG-purple)
-![DeepEval](https://img.shields.io/badge/Testing-DeepEval-blue)
-![GitHub API](https://img.shields.io/badge/GitHub-REST_API-181717?logo=github&logoColor=white)
-![Chart.js](https://img.shields.io/badge/Chart.js-FF6384?logo=chartdotjs&logoColor=white)
 
 # 🚀 DevDynamics — AI-Powered GitHub Analytics Dashboard
 
 ### Track developer activity. Explore repository trends. Ask questions using RAG.
 
-**Python · Flask · MongoDB · GitHub REST API · LangChain · ChromaDB · DeepEval · React.js · Chart.js**
 
-![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)
-![Flask](https://img.shields.io/badge/Flask-000000?logo=flask&logoColor=white)
-![MongoDB](https://img.shields.io/badge/MongoDB-47A248?logo=mongodb&logoColor=white)
-![React](https://img.shields.io/badge/React-149ECA?logo=react&logoColor=white)
-![LangChain](https://img.shields.io/badge/LangChain-RAG-1C3C3C)
+
 
 **DevDynamics** is an individual full-stack developer analytics project that converts GitHub activity into visual insights and natural-language answers. Its **Flask REST APIs** ingest commits, pull requests, and contributor data from the **GitHub REST API**, store repository activity in **MongoDB**, and power a **React.js + Chart.js** analytics dashboard.
 
